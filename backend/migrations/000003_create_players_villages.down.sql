@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS villages;
+DROP TABLE IF EXISTS players;
