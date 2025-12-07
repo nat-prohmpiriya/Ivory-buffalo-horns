@@ -11,11 +11,12 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/travillian/tusk-horn/internal/config"
 	"github.com/travillian/tusk-horn/internal/pkg/database"
 	"github.com/travillian/tusk-horn/internal/pkg/firebase"
 	"github.com/travillian/tusk-horn/internal/pkg/telemetry"
+	"github.com/travillian/tusk-horn/internal/server/middleware"
 )
 
 func main() {
@@ -66,10 +67,11 @@ func main() {
 
 	// 5. Setup Router
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	r.Use(middleware.Cors(cfg.App.AllowOrigins))
+	r.Use(chimiddleware.Logger)
+	r.Use(chimiddleware.Recoverer)
+	r.Use(chimiddleware.RequestID)
+	r.Use(chimiddleware.RealIP)
 
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		if err := pg.Pool.Ping(r.Context()); err != nil {

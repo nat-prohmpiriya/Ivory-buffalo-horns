@@ -16,10 +16,11 @@ type Config struct {
 }
 
 type AppConfig struct {
-	Env      string `mapstructure:"APP_ENV"`
-	Debug    bool   `mapstructure:"APP_DEBUG"`
-	LogLevel string `mapstructure:"LOG_LEVEL"`
-	Port     string `mapstructure:"PORT"`
+	Env          string   `mapstructure:"APP_ENV"`
+	Debug        bool     `mapstructure:"APP_DEBUG"`
+	LogLevel     string   `mapstructure:"LOG_LEVEL"`
+	Port         string   `mapstructure:"PORT"`
+	AllowOrigins []string `mapstructure:"ALLOW_ORIGINS"`
 }
 
 type PostgresConfig struct {
@@ -67,6 +68,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("APP_DEBUG", true)
 	viper.SetDefault("LOG_LEVEL", "debug")
 	viper.SetDefault("PORT", "8080")
+	viper.SetDefault("ALLOW_ORIGINS", []string{"http://localhost:5173", "http://localhost:3000"})
 
 	viper.SetDefault("POSTGRES_PORT", "5432")
 	viper.SetDefault("POSTGRES_USER", "postgres")

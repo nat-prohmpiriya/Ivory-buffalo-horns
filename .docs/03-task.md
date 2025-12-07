@@ -104,16 +104,16 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [] T007: Setup Database Migrations
+### [x] T007: Setup Database Migrations
 - **Description:** Create migration system using golang-migrate. Add first migration for extensions.
 - **Technical Context:**
   - Files: `migrations/001_init.up.sql`, `migrations/001_init.down.sql`, `scripts/migrate.go`
   - Dependency: `github.com/golang-migrate/migrate/v4`
 - **Acceptance Criteria:**
-  - [ ] Migration CLI command: `make migrate-up`, `make migrate-down`
-  - [ ] First migration enables uuid-ossp and pgcrypto extensions
-  - [ ] Migrations tracked in schema_migrations table
-  - [ ] Rollback works correctly
+  - [x] Migration CLI command: `make migrate-up`, `make migrate-down`
+  - [x] First migration enables uuid-ossp and pgcrypto extensions
+  - [x] Migrations tracked in schema_migrations table
+  - [x] Rollback works correctly
 
 ---
 
