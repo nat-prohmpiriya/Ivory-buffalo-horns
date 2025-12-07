@@ -15,30 +15,33 @@ import (
 	"github.com/travillian/tusk-horn/internal/config"
 	"github.com/travillian/tusk-horn/internal/pkg/database"
 	"github.com/travillian/tusk-horn/internal/pkg/firebase"
+	"github.com/travillian/tusk-horn/internal/pkg/logger"
 	"github.com/travillian/tusk-horn/internal/pkg/telemetry"
 	"github.com/travillian/tusk-horn/internal/server/middleware"
 )
 
 func main() {
-	log.Println("Tusk & Horn Server Starting...")
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// 1. Load Config
+	// 0. Load Config (First to get log level)
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// 1. Init Logger
+	logger.Init(cfg.App.LogLevel, cfg.App.Env)
+	logger.Log.Info("Tusk & Horn Server Starting...", "env", cfg.App.Env, "port", cfg.App.Port)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// 2. Setup Telemetry
 	shutdownTracer, err := telemetry.InitTracer(ctx, cfg.OTEL)
 	if err != nil {
-		log.Printf("Failed to init tracer: %v", err)
+		logger.Log.Error("Failed to init tracer", "error", err)
 	}
 	defer func() {
 		if err := shutdownTracer(context.Background()); err != nil {
-			log.Printf("Error shutting down tracer: %v", err)
+			logger.Log.Error("Error shutting down tracer", "error", err)
 		}
 	}()
 
@@ -46,21 +49,23 @@ func main() {
 	// Postgres
 	pg, err := database.NewPostgres(cfg.Postgres)
 	if err != nil {
-		log.Fatalf("Failed to connect to Postgres: %v", err)
+		logger.Log.Error("Failed to connect to Postgres", "error", err)
+		os.Exit(1)
 	}
 	defer pg.Close()
 
 	// Redis
 	rdb, err := database.NewRedis(cfg.Redis)
 	if err != nil {
-		log.Fatalf("Failed to connect to Redis: %v", err)
+		logger.Log.Error("Failed to connect to Redis", "error", err)
+		os.Exit(1)
 	}
 	defer rdb.Close()
 
 	// 4. Initialize Firebase
 	fbClient, err := firebase.NewClient(cfg.Firebase.CredentialsPath)
 	if err != nil {
-		log.Printf("Warning: Failed to init Firebase: %v. Auth will fail.", err)
+		logger.Log.Warn("Failed to init Firebase. Auth will fail.", "error", err)
 	} else {
 		_ = fbClient
 	}
@@ -68,7 +73,7 @@ func main() {
 	// 5. Setup Router
 	r := chi.NewRouter()
 	r.Use(middleware.Cors(cfg.App.AllowOrigins))
-	r.Use(chimiddleware.Logger)
+	r.Use(middleware.Logger) // Custom structured logger
 	r.Use(chimiddleware.Recoverer)
 	r.Use(chimiddleware.RequestID)
 	r.Use(chimiddleware.RealIP)

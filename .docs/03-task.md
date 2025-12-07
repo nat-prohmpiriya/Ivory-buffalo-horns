@@ -131,7 +131,7 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [] T009: Setup CORS Middleware
+### [x] T009: Setup CORS Middleware
 - **Description:** Implement CORS middleware with configurable allowed origins.
 - **Technical Context:**
   - Files: `internal/server/middleware/cors.go`
@@ -144,16 +144,16 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [] T010: Setup Request Validation
+### [x] T010: Setup Request Validation
 - **Description:** Create request validation using go-playground/validator with custom error messages.
 - **Technical Context:**
   - Files: `internal/pkg/validator/validator.go`
   - Dependency: `github.com/go-playground/validator/v10`
 - **Acceptance Criteria:**
-  - [ ] Validator instance with custom tags
-  - [ ] Custom error formatter returning field-level errors
-  - [ ] Thai-friendly validation messages
-  - [ ] Unit tests for common validations (email, password, etc.)
+  - [x] Validator instance with custom tags
+  - [x] Custom error formatter returning field-level errors
+  - [x] Thai-friendly validation messages
+  - [x] Unit tests for common validations (email, password, etc.)
 
 ---
 
