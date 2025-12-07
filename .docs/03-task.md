@@ -171,31 +171,31 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [] T012: Setup Frontend API Client
+### [x] T012: Setup Frontend API Client
 - **Description:** Create API client service for frontend using fetch with interceptors.
 - **Technical Context:**
   - Files: `frontend/src/lib/services/api.ts`
   - Handle: auth token injection, error handling, refresh token
 - **Acceptance Criteria:**
-  - [ ] Base URL configurable via environment
-  - [ ] Automatic Authorization header injection
-  - [ ] JSON request/response handling
-  - [ ] Error response parsing
-  - [ ] Token refresh on 401
+  - [x] Base URL configurable via environment
+  - [x] Automatic Authorization header injection
+  - [x] JSON request/response handling
+  - [x] Error response parsing
+  - [x] Token refresh on 401
 
 ---
 
-### [] T013: Setup Frontend WebSocket Client
+### [x] T013: Setup Frontend WebSocket Client
 - **Description:** Create WebSocket service for real-time updates.
 - **Technical Context:**
   - Files: `frontend/src/lib/services/websocket.ts`
   - Events: connect, disconnect, message, reconnect
 - **Acceptance Criteria:**
-  - [ ] Connect with auth token
-  - [ ] Automatic reconnection with backoff
-  - [ ] Event subscription system
-  - [ ] Ping/pong heartbeat
-  - [ ] Svelte store integration
+  - [x] Connect with auth token
+  - [x] Automatic reconnection with backoff
+  - [x] Event subscription system
+  - [x] Ping/pong heartbeat
+  - [x] Svelte store integration
 
 ---
 

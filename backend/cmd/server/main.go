@@ -13,11 +13,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/travillian/tusk-horn/internal/config"
+	"github.com/travillian/tusk-horn/internal/middleware"
 	"github.com/travillian/tusk-horn/internal/pkg/database"
 	"github.com/travillian/tusk-horn/internal/pkg/firebase"
 	"github.com/travillian/tusk-horn/internal/pkg/logger"
 	"github.com/travillian/tusk-horn/internal/pkg/telemetry"
-	"github.com/travillian/tusk-horn/internal/server/middleware"
 )
 
 func main() {
