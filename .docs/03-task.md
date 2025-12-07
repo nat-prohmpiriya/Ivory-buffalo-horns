@@ -217,70 +217,70 @@ Each task is small enough to be reviewed and tested independently.
 
 ## 1.2 Core Tables
 
-### [] T015: Create Users Table Migration
+### [x] T015: Create Users Table Migration
 - **Description:** Create migration for users table with email, password, OAuth fields.
 - **Technical Context:**
   - Files: `migrations/002_users.up.sql`, `migrations/002_users.down.sql`
   - Schema: See 02-pland.md Section 2.2
 - **Acceptance Criteria:**
-  - [ ] Table created with all columns from schema
-  - [ ] Unique constraint on email
-  - [ ] Unique constraint on (oauth_provider, oauth_id)
-  - [ ] created_at, updated_at default to NOW()
-  - [ ] Down migration drops table
+  - [x] Table created with all columns from schema
+  - [x] Unique constraint on email
+  - [x] Unique constraint on (oauth_provider, oauth_id)
+  - [x] created_at, updated_at default to NOW()
+  - [x] Down migration drops table
 
 ---
 
-### [] T016: Create Servers Table Migration
+### [x] T016: Create Servers Table Migration
 - **Description:** Create migration for game servers (worlds).
 - **Technical Context:**
   - Files: `migrations/003_servers.up.sql`
   - Enum: server_status
 - **Acceptance Criteria:**
-  - [ ] ENUM type server_status created
-  - [ ] Table with code, name, region, status, speed, map_size
-  - [ ] Unique constraint on server code
-  - [ ] Index on status for active server queries
+  - [x] ENUM type server_status created
+  - [x] Table with code, name, region, status, speed, map_size
+  - [x] Unique constraint on server code
+  - [x] Index on status for active server queries
 
 ---
 
-### [] T017: Create Tribes Table Migration
+### [x] T017: Create Tribes Table Migration
 - **Description:** Create migration for tribes reference table.
 - **Technical Context:**
   - Files: `migrations/004_tribes.up.sql`
   - Enum: tribe_code
 - **Acceptance Criteria:**
-  - [ ] ENUM type tribe_code created
-  - [ ] Table with code, name_i18n, description_i18n, bonuses
-  - [ ] JSONB columns for i18n text
-  - [ ] Unique constraint on tribe code
+  - [x] ENUM type tribe_code created
+  - [x] Table with code, name_i18n, description_i18n, bonuses
+  - [x] JSONB columns for i18n text
+  - [x] Unique constraint on tribe code
 
 ---
 
-### [] T018: Create Players Table Migration
+### [x] T018: Create Players Table Migration
 - **Description:** Create migration for players (user in a server).
 - **Technical Context:**
   - Files: `migrations/005_players.up.sql`
   - Foreign keys: user_id, server_id, tribe_id
 - **Acceptance Criteria:**
-  - [ ] Table with all columns from schema
-  - [ ] Foreign key to users, servers, tribes
-  - [ ] Unique constraint on (user_id, server_id)
-  - [ ] Unique constraint on (server_id, name)
-  - [ ] Index on last_active_at
+  - [x] Table with all columns from schema
+  - [x] Foreign key to users, servers, tribes
+  - [x] Unique constraint on (user_id, server_id)
+  - [x] Unique constraint on (server_id, name)
+  - [x] Index on last_active_at
 
 ---
 
-### [] T019: Create Villages Table Migration
+### [x] T019: Create Villages Table Migration
 - **Description:** Create migration for villages with resources.
 - **Technical Context:**
   - Files: `migrations/006_villages.up.sql`
 - **Acceptance Criteria:**
-  - [ ] Table with all resource columns (DECIMAL)
-  - [ ] Foreign key to players
-  - [ ] Spatial index on (x, y) coordinates
-  - [ ] Unique constraint on (player_id, x, y)
-  - [ ] Default values for starting resources
+  - [x] Table with all resource columns (DECIMAL)
+  - [x] Foreign key to players
+  - [x] Spatial index on (x, y) coordinates
+  - [x] Unique constraint on (player_id, x, y)
+  - [x] Default values for starting resources
 
 ---
 
