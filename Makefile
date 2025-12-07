@@ -6,11 +6,11 @@ FRONTEND_DIR := frontend
 # Backend Commands
 .PHONY: migrate-up
 migrate-up:
-	cd $(BACKEND_DIR) && go run scripts/migrate.go -direction up
+	cd $(BACKEND_DIR) && go run cmd/migrate/main.go -direction up
 
 .PHONY: migrate-down
 migrate-down:
-	cd $(BACKEND_DIR) && go run scripts/migrate.go -direction down
+	cd $(BACKEND_DIR) && go run cmd/migrate/main.go -direction down
 
 .PHONY: dev
 dev:
