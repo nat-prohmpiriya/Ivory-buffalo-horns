@@ -76,30 +76,30 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [] T005: Setup PostgreSQL Connection Pool
+### [x] T005: Setup PostgreSQL Connection Pool
 - **Description:** Create database connection pool using pgx. Implement connection health check.
 - **Technical Context:**
   - Files: `internal/pkg/database/postgres.go`
   - Dependency: `github.com/jackc/pgx/v5`
 - **Acceptance Criteria:**
-  - [ ] Connection pool initialized with configurable size
-  - [ ] Ping function to verify connectivity
-  - [ ] Graceful connection close on shutdown
-  - [ ] Connection timeout handling
+  - [x] Connection pool initialized with configurable size
+  - [x] Ping function to verify connectivity
+  - [x] Graceful connection close on shutdown
+  - [x] Connection timeout handling
   - [ ] Unit test with docker postgres
 
 ---
 
-### [] T006: Setup Redis Connection
+### [x] T006: Setup Redis Connection
 - **Description:** Create Redis client wrapper for caching and pub/sub.
 - **Technical Context:**
   - Files: `internal/pkg/database/redis.go`
   - Dependency: `github.com/redis/go-redis/v9`
 - **Acceptance Criteria:**
-  - [ ] Redis client initialized with config
-  - [ ] Ping function to verify connectivity
-  - [ ] Helper methods: Get, Set, Delete, Publish, Subscribe
-  - [ ] Connection pool settings configurable
+  - [x] Redis client initialized with config
+  - [x] Ping function to verify connectivity
+  - [x] Helper methods: Get, Set, Delete, Publish, Subscribe
+  - [x] Connection pool settings configurable
   - [ ] Unit test with docker redis
 
 ---
