@@ -157,17 +157,17 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [] T011: Setup Structured Logging
+### [x] T011: Setup Structured Logging
 - **Description:** Implement structured logging with zerolog. Log levels and JSON format.
 - **Technical Context:**
   - Files: `internal/pkg/logger/logger.go`
   - Dependency: `github.com/rs/zerolog`
 - **Acceptance Criteria:**
-  - [ ] Log levels: debug, info, warn, error
-  - [ ] JSON output for production
-  - [ ] Pretty console output for development
-  - [ ] Request ID tracking
-  - [ ] Context-aware logging
+  - [x] Log levels: debug, info, warn, error
+  - [x] JSON output for production
+  - [x] Pretty console output for development
+  - [x] Request ID tracking
+  - [x] Context-aware logging
 
 ---
 
