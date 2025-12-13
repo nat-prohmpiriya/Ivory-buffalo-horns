@@ -284,131 +284,131 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [] T020: Create Buildings Table Migration
+### [x] T020: Create Buildings Table Migration
 - **Description:** Create migration for buildings and building queue.
 - **Technical Context:**
-  - Files: `migrations/007_buildings.up.sql`
+  - Files: `migrations/000004_create_buildings_queue.up.sql`
   - Enum: building_type
 - **Acceptance Criteria:**
-  - [ ] ENUM type building_type with all 23 building types
-  - [ ] buildings table with slot, level, upgrade timestamps
-  - [ ] building_queue table for VIP multi-queue
-  - [ ] Foreign key to villages with CASCADE delete
-  - [ ] Unique constraint on (village_id, slot)
+  - [x] ENUM type building_type with all 23 building types
+  - [x] buildings table with slot, level, upgrade timestamps
+  - [x] building_queue table for VIP multi-queue
+  - [x] Foreign key to villages with CASCADE delete
+  - [x] Unique constraint on (village_id, slot)
 
 ---
 
-### [] T021: Create Troops Tables Migration
+### [x] T021: Create Troops Tables Migration
 - **Description:** Create migration for troop definitions, troops, and training queue.
 - **Technical Context:**
-  - Files: `migrations/008_troops.up.sql`
+  - Files: `migrations/000005_create_troops_queue.up.sql`
   - Enum: troop_type (16 types)
 - **Acceptance Criteria:**
-  - [ ] ENUM type troop_type with all 16 troop types
-  - [ ] troop_definitions reference table with stats
-  - [ ] troops table for village garrison
-  - [ ] troop_queue table for training queue
-  - [ ] Unique constraint on (village_id, troop_type)
+  - [x] ENUM type troop_type with all 16 troop types
+  - [x] troop_definitions reference table with stats
+  - [x] troops table for village garrison
+  - [x] troop_queue table for training queue
+  - [x] Unique constraint on (village_id, troop_type)
 
 ---
 
-### [] T022: Create Armies Table Migration
+### [x] T022: Create Armies Table Migration
 - **Description:** Create migration for moving armies.
 - **Technical Context:**
-  - Files: `migrations/009_armies.up.sql`
+  - Files: `migrations/000006_create_armies.up.sql`
   - Enum: mission_type
 - **Acceptance Criteria:**
-  - [ ] ENUM type mission_type (raid, attack, conquer, support, scout, settle)
-  - [ ] Table with troops JSONB, resources JSONB
-  - [ ] Indexes on arrives_at, (to_x, to_y)
-  - [ ] Foreign key to players, villages
+  - [x] ENUM type mission_type (raid, attack, conquer, support, scout, settle)
+  - [x] Table with troops JSONB, resources JSONB
+  - [x] Indexes on arrives_at, (to_x, to_y)
+  - [x] Foreign key to players, villages
 
 ---
 
-### [] T023: Create Alliances Tables Migration
+### [x] T023: Create Alliances Tables Migration
 - **Description:** Create migration for alliances, members, and diplomacy.
 - **Technical Context:**
-  - Files: `migrations/010_alliances.up.sql`
+  - Files: `migrations/000007_create_alliances.up.sql`
   - Enum: alliance_role
 - **Acceptance Criteria:**
-  - [ ] ENUM type alliance_role
-  - [ ] alliances table with bank, max_members
-  - [ ] alliance_members table with role
-  - [ ] alliance_diplomacy table for NAP/War
-  - [ ] Unique constraints per server
+  - [x] ENUM type alliance_role
+  - [x] alliances table with bank, max_members
+  - [x] alliance_members table with role
+  - [x] alliance_diplomacy table for NAP/War
+  - [x] Unique constraints per server
 
 ---
 
-### [] T024: Create Reports Table Migration
+### [x] T024: Create Reports Table Migration
 - **Description:** Create migration for player reports (battle, trade, scout).
 - **Technical Context:**
-  - Files: `migrations/011_reports.up.sql`
+  - Files: `migrations/000008_create_reports_messages.up.sql`
   - Enum: report_type
 - **Acceptance Criteria:**
-  - [ ] ENUM type report_type
-  - [ ] Table with data JSONB for flexible content
-  - [ ] Index on (player_id, created_at DESC)
-  - [ ] Partial index on unread reports
+  - [x] ENUM type report_type
+  - [x] Table with data JSONB for flexible content
+  - [x] Index on (player_id, created_at DESC)
+  - [x] Partial index on unread reports
 
 ---
 
-### [] T025: Create Messages Table Migration
+### [x] T025: Create Messages Table Migration
 - **Description:** Create migration for private and alliance messages.
 - **Technical Context:**
-  - Files: `migrations/012_messages.up.sql`
+  - Files: `migrations/000008_create_reports_messages.up.sql`
 - **Acceptance Criteria:**
-  - [ ] Table supporting both private (recipient_id) and alliance (alliance_id) messages
-  - [ ] Index on recipient for private messages
-  - [ ] Index on alliance for alliance chat
-  - [ ] is_read flag for notifications
+  - [x] Table supporting both private (recipient_id) and alliance (alliance_id) messages
+  - [x] Index on recipient for private messages
+  - [x] Index on alliance for alliance chat
+  - [x] is_read flag for notifications
 
 ---
 
-### [] T026: Create Transactions Table Migration
+### [x] T026: Create Transactions Table Migration
 - **Description:** Create migration for payment transactions.
 - **Technical Context:**
   - Files: `migrations/013_transactions.up.sql`
 - **Acceptance Criteria:**
-  - [ ] Table with amount, gold, payment method, status
-  - [ ] External ID for payment gateway reference
-  - [ ] Index on user for history queries
-  - [ ] Partial index on pending transactions
+  - [x] Table with amount, gold, payment method, status
+  - [x] External ID for payment gateway reference
+  - [x] Index on user for history queries
+  - [x] Partial index on pending transactions
 
 ---
 
-### [] T027: Create Map Tiles Table Migration
+### [x] T027: Create Map Tiles Table Migration
 - **Description:** Create migration for terrain data.
 - **Technical Context:**
   - Files: `migrations/014_map_tiles.up.sql`
 - **Acceptance Criteria:**
-  - [ ] Composite primary key (server_id, x, y)
-  - [ ] terrain type column
-  - [ ] oasis_type and bonus for special tiles
-  - [ ] Foreign key to servers
+  - [x] Composite primary key (server_id, x, y)
+  - [x] terrain type column
+  - [x] oasis_type and bonus for special tiles
+  - [x] Foreign key to servers
 
 ---
 
-### [] T028: Create Sessions Table Migration
+### [x] T028: Create Sessions Table Migration
 - **Description:** Create migration for session storage (optional, backup to Redis).
 - **Technical Context:**
   - Files: `migrations/015_sessions.up.sql`
 - **Acceptance Criteria:**
-  - [ ] Table with token_hash, expires_at
-  - [ ] Index on token_hash for lookup
-  - [ ] Index on user_id for session management
+  - [x] Table with token_hash, expires_at
+  - [x] Index on token_hash for lookup
+  - [x] Index on user_id for session management
 
 ---
 
-### [] T029: Seed Tribes Data
+### [x] T029: Seed Tribes Data
 - **Description:** Create seed script to populate tribes table with 3 tribes.
 - **Technical Context:**
-  - Files: `scripts/seed.go` or `migrations/016_seed_tribes.up.sql`
+  - Files: `migrations/000010_seed_tribes.up.sql`
   - Data: Phasuttha, Nava, Kiri with bonuses
 - **Acceptance Criteria:**
-  - [ ] 3 tribes inserted with correct codes
-  - [ ] name_i18n has Thai and English names
-  - [ ] description_i18n has descriptions
-  - [ ] Bonus values match 01-spec.md
+  - [x] 3 tribes inserted with correct codes
+  - [x] name_i18n has Thai and English names
+  - [x] description_i18n has descriptions
+  - [x] Bonus values based on Travian reference
 
 ---
 
