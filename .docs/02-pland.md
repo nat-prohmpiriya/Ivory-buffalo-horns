@@ -10,10 +10,10 @@
 | Layer | Technology | Rationale |
 |-------|------------|-----------|
 | Frontend | Svelte/SvelteKit | Reactive, lightweight, excellent performance |
-| Backend | Go (Golang) | High concurrency, efficient memory, game server ready |
-| Database | PostgreSQL | ACID compliance, JSONB for flexible data |
+| Backend | Rust (Axum) | Memory safety, high performance, zero-cost abstractions |
+| Database | PostgreSQL + SQLx | ACID compliance, JSONB for flexible data, compile-time checked queries |
 | Cache | Redis | Pub/Sub for real-time, session management |
-| Real-time | WebSockets | Bi-directional communication for live updates |
+| Real-time | WebSockets (tokio-tungstenite) | Bi-directional communication for live updates |
 | Auth | Firebase Authentication | Managed auth, social login out-of-the-box |
 | i18n | svelte-i18n (FE) + JSONB (BE) | Multi-language support |
 
@@ -43,7 +43,7 @@
 |                           APPLICATION LAYER                                  |
 +--------------------------------+---------------------------------------------+
 |  +-----------------------------------------------------------------------+   |
-|  |                     GO MONOLITH SERVER                                |   |
+|  |                    RUST AXUM SERVER                                   |   |
 |  |  +--------------+ +--------------+ +--------------+ +--------------+  |   |
 |  |  |   REST API   | |  WebSocket   | | Game Engine  | |    Auth      |  |   |
 |  |  |   Handler    | |   Handler    | |   (Tick)     | | (Firebase)   |  |   |
@@ -106,8 +106,8 @@
 
 ```
 +------------+         +----------------+         +--------------+
-|   Client   | --WSS-->|   Go Server    | <-----> |    Redis     |
-|  (Svelte)  |         |  (goroutine)   | Pub/Sub |              |
+|   Client   | --WSS-->| Rust Server    | <-----> |    Redis     |
+|  (Svelte)  |         | (tokio tasks)  | Pub/Sub |              |
 +------------+         +----------------+         +--------------+
       |                       |                         |
       |  1. Connect           |                         |
@@ -682,101 +682,103 @@ interface ServerMessage {
 
 ## 4. Component Structure
 
-### 4.1 Backend (Go) Structure
+### 4.1 Backend (Rust) Structure
 
 ```
 backend/
-|-- cmd/
-|   +-- server/
-|       +-- main.go              # Entry point
-|-- internal/
+|-- Cargo.toml                   # Dependencies (like package.json)
+|-- Cargo.lock                   # Lock file
+|-- .env                         # Environment variables
+|-- src/
+|   |-- main.rs                  # Entry point
+|   |-- lib.rs                   # Library root (optional)
 |   |-- config/
-|   |   +-- config.go            # Configuration loading
+|   |   +-- mod.rs               # Configuration loading
 |   |-- server/
-|   |   |-- server.go            # HTTP server setup
-|   |   |-- routes.go            # Route definitions
+|   |   |-- mod.rs               # HTTP server setup
+|   |   |-- routes.rs            # Route definitions
 |   |   +-- middleware/
-|   |       |-- auth.go          # JWT authentication
-|   |       |-- cors.go          # CORS handling
-|   |       |-- ratelimit.go     # Rate limiting
-|   |       +-- logging.go       # Request logging
-|   |-- handler/
-|   |   |-- auth.go              # Auth handlers
-|   |   |-- player.go            # Player handlers
-|   |   |-- village.go           # Village handlers
-|   |   |-- building.go          # Building handlers
-|   |   |-- troop.go             # Troop handlers
-|   |   |-- army.go              # Army handlers
-|   |   |-- map.go               # Map handlers
-|   |   |-- alliance.go          # Alliance handlers
-|   |   |-- report.go            # Report handlers
-|   |   |-- message.go           # Message handlers
-|   |   |-- shop.go              # Shop handlers
-|   |   +-- websocket.go         # WebSocket handlers
-|   |-- service/
-|   |   |-- firebase_service.go  # Firebase Auth integration
-|   |   |-- player_service.go    # Player logic
-|   |   |-- village_service.go   # Village logic
-|   |   |-- building_service.go  # Building logic
-|   |   |-- troop_service.go     # Troop logic
-|   |   |-- combat_service.go    # Battle calculations
-|   |   |-- army_service.go      # Army movement
-|   |   |-- alliance_service.go  # Alliance logic
-|   |   |-- shop_service.go      # Payment logic
-|   |   +-- notification_service.go # Push notifications
-|   |-- repository/
-|   |   |-- user_repo.go         # User data access
-|   |   |-- player_repo.go       # Player data access
-|   |   |-- village_repo.go      # Village data access
-|   |   |-- building_repo.go     # Building data access
-|   |   |-- troop_repo.go        # Troop data access
-|   |   |-- army_repo.go         # Army data access
-|   |   |-- alliance_repo.go     # Alliance data access
-|   |   |-- report_repo.go       # Report data access
-|   |   +-- transaction_repo.go  # Transaction data access
-|   |-- model/
-|   |   |-- user.go              # User model
-|   |   |-- player.go            # Player model
-|   |   |-- village.go           # Village model
-|   |   |-- building.go          # Building model
-|   |   |-- troop.go             # Troop model
-|   |   |-- army.go              # Army model
-|   |   |-- alliance.go          # Alliance model
-|   |   |-- report.go            # Report model
+|   |       |-- mod.rs
+|   |       |-- auth.rs          # Firebase token verification
+|   |       |-- cors.rs          # CORS handling
+|   |       +-- logging.rs       # Request logging (tower-http)
+|   |-- handlers/
+|   |   |-- mod.rs
+|   |   |-- auth.rs              # Auth handlers
+|   |   |-- player.rs            # Player handlers
+|   |   |-- village.rs           # Village handlers
+|   |   |-- building.rs          # Building handlers
+|   |   |-- troop.rs             # Troop handlers
+|   |   |-- army.rs              # Army handlers
+|   |   |-- map.rs               # Map handlers
+|   |   |-- alliance.rs          # Alliance handlers
+|   |   |-- report.rs            # Report handlers
+|   |   |-- message.rs           # Message handlers
+|   |   |-- shop.rs              # Shop handlers
+|   |   +-- websocket.rs         # WebSocket handlers
+|   |-- services/
+|   |   |-- mod.rs
+|   |   |-- firebase.rs          # Firebase Auth integration
+|   |   |-- player.rs            # Player logic
+|   |   |-- village.rs           # Village logic
+|   |   |-- building.rs          # Building logic
+|   |   |-- troop.rs             # Troop logic
+|   |   |-- combat.rs            # Battle calculations
+|   |   |-- army.rs              # Army movement
+|   |   |-- alliance.rs          # Alliance logic
+|   |   |-- shop.rs              # Payment logic
+|   |   +-- notification.rs      # Push notifications
+|   |-- repositories/
+|   |   |-- mod.rs
+|   |   |-- user.rs              # User data access
+|   |   |-- player.rs            # Player data access
+|   |   |-- village.rs           # Village data access
+|   |   |-- building.rs          # Building data access
+|   |   |-- troop.rs             # Troop data access
+|   |   |-- army.rs              # Army data access
+|   |   |-- alliance.rs          # Alliance data access
+|   |   |-- report.rs            # Report data access
+|   |   +-- transaction.rs       # Transaction data access
+|   |-- models/
+|   |   |-- mod.rs
+|   |   |-- user.rs              # User model
+|   |   |-- player.rs            # Player model
+|   |   |-- village.rs           # Village model
+|   |   |-- building.rs          # Building model
+|   |   |-- troop.rs             # Troop model
+|   |   |-- army.rs              # Army model
+|   |   |-- alliance.rs          # Alliance model
+|   |   |-- report.rs            # Report model
 |   |   +-- dto/                 # Data Transfer Objects
-|   |       |-- request/         # Request DTOs
-|   |       +-- response/        # Response DTOs
+|   |       |-- mod.rs
+|   |       |-- request.rs       # Request DTOs
+|   |       +-- response.rs      # Response DTOs
 |   |-- game/
-|   |   |-- engine.go            # Game tick engine
-|   |   |-- resource.go          # Resource production
-|   |   |-- combat.go            # Combat system
-|   |   |-- building_data.go     # Building definitions
-|   |   |-- troop_data.go        # Troop definitions
-|   |   +-- formula.go           # Game formulas
+|   |   |-- mod.rs
+|   |   |-- engine.rs            # Game tick engine
+|   |   |-- resource.rs          # Resource production
+|   |   |-- combat.rs            # Combat system
+|   |   |-- building_data.rs     # Building definitions
+|   |   |-- troop_data.rs        # Troop definitions
+|   |   +-- formula.rs           # Game formulas
 |   |-- realtime/
-|   |   |-- hub.go               # WebSocket hub
-|   |   |-- client.go            # WebSocket client
-|   |   +-- events.go            # Event definitions
-|   +-- pkg/
-|       |-- database/
-|       |   |-- postgres.go      # PostgreSQL connection
-|       |   +-- redis.go         # Redis connection
-|       |-- firebase/
-|       |   +-- client.go        # Firebase Admin SDK init
-|       |   +-- oauth.go         # OAuth helpers
-|       |-- validator/
-|       |   +-- validator.go     # Request validation
-|       +-- errors/
-|           +-- errors.go        # Custom errors
+|   |   |-- mod.rs
+|   |   |-- hub.rs               # WebSocket hub
+|   |   |-- client.rs            # WebSocket client
+|   |   +-- events.rs            # Event definitions
+|   |-- db/
+|   |   |-- mod.rs
+|   |   |-- postgres.rs          # PostgreSQL connection (SQLx)
+|   |   +-- redis.rs             # Redis connection
+|   |-- firebase/
+|   |   |-- mod.rs
+|   |   +-- client.rs            # Firebase Admin SDK
+|   +-- error/
+|       +-- mod.rs               # Custom error types (thiserror)
 |-- migrations/
-|   |-- 001_init.up.sql
-|   |-- 001_init.down.sql
+|   |-- 000001_init.up.sql
+|   |-- 000001_init.down.sql
 |   +-- ...
-|-- scripts/
-|   |-- seed.go                  # Database seeding
-|   +-- migrate.go               # Migration runner
-|-- go.mod
-|-- go.sum
 |-- Makefile
 |-- Dockerfile
 +-- docker-compose.yml
@@ -784,96 +786,179 @@ backend/
 
 ### 4.2 Frontend (SvelteKit) Structure
 
+#### 4.2.1 Page Architecture (4 Pages + Modals)
+
+แนวทาง: ใช้ 4 หน้าหลัก และจัดการ features อื่นๆ ผ่าน Modal/Drawer เพื่อ UX ที่ลื่นไหลเหมือนเกมจริง
+
+> **Note (MVP):** ใช้ Single Server ก่อน ไม่มี server selection
+> - Login → ถ้ายังไม่มี Player → /onboarding
+> - Login → ถ้ามี Player แล้ว → /game/village
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  LANDING PAGE (/)                                               │
+│  - Hero section แนะนำเกม                                         │
+│  - Features highlight                                           │
+│  ├── Modal: Login (Email/Google/Facebook)                       │
+│  ├── Modal: Register                                            │
+│  └── Modal: Forgot Password                                     │
+├─────────────────────────────────────────────────────────────────┤
+│  ONBOARDING (/onboarding) - ผู้ใช้ใหม่เท่านั้น                    │
+│  - Full-screen tribe selection                                  │
+│  - Player name input                                            │
+│  - Auto-create first village after completion                   │
+│  ├── Step 1: เลือกเผ่า (Phasuttha, Nava, Kiri)                  │
+│  ├── Step 2: ตั้งชื่อ Player                                     │
+│  └── Step 3: (Future) Tutorial / Intro                          │
+├─────────────────────────────────────────────────────────────────┤
+│  MAP (/game/map)                                                │
+│  - Interactive world map (200x200 grid)                         │
+│  - Mini resource bar                                            │
+│  - Army movement indicators                                     │
+│  ├── Modal: Tile Detail (click on any tile)                     │
+│  ├── Modal: Send Army (Raid/Attack/Support/Scout)               │
+│  ├── Modal: Army List (traveling armies)                        │
+│  ├── Modal: Search Player/Village                               │
+│  ├── Drawer: Alliance (shared, same as Village)                 │
+│  └── Drawer: Notifications                                      │
+├─────────────────────────────────────────────────────────────────┤
+│  VILLAGE (/game/village)                                        │
+│  - Village visual (building slots)                              │
+│  - Resource bar + production rates                              │
+│  - Quick action buttons                                         │
+│  ├── Modal: Building Detail + Upgrade                           │
+│  ├── Modal: Troop Training                                      │
+│  ├── Modal: Resource Fields Management                          │
+│  ├── Modal: Reports List + Detail                               │
+│  ├── Modal: Messages (Private)                                  │
+│  ├── Modal: Shop - Gold/VIP Purchase (Phase 2)                  │
+│  ├── Drawer: Building Queue                                     │
+│  ├── Drawer: Troop Queue                                        │
+│  └── Drawer: Alliance (Phase 2) - with tabs:                    │
+│        ├── Tab: Overview (home, bank, activity)                 │
+│        ├── Tab: Members (list, invite, kick, promote)           │
+│        ├── Tab: Diplomacy (NAP, War, Ally)                      │
+│        └── Tab: Chat (real-time messaging)                      │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### 4.2.2 Modal Management Strategy
+
+```
+URL State Sync (Deep Linking Support):
+- /game/village?modal=building&id=barracks
+- /game/map?modal=send-army&target=150,120
+- Browser back button = close modal
+
+Modal Stack:
+- Support nested modals (e.g., Building → Confirm Upgrade → Success)
+- Maximum 3 levels deep
+
+Mobile Adaptation:
+- Modal → Bottom Sheet (slide up)
+- Drawer → Full Screen Slide
+```
+
+#### 4.2.3 Directory Structure
+
 ```
 frontend/
 |-- src/
 |   |-- routes/
-|   |   |-- +layout.svelte       # Root layout
-|   |   |-- +page.svelte         # Landing page
-|   |   |-- auth/
-|   |   |   |-- login/+page.svelte
-|   |   |   |-- register/+page.svelte
-|   |   |   +-- callback/+page.svelte  # OAuth callback
-|   |   |-- servers/
-|   |   |   |-- +page.svelte     # Server list
-|   |   |   +-- [id]/
-|   |   |       +-- join/+page.svelte  # Tribe selection
+|   |   |-- +layout.svelte           # Root layout (global providers)
+|   |   |-- +page.svelte             # Landing page
+|   |   |-- onboarding/
+|   |   |   +-- +page.svelte         # Tribe selection + Player name (new users)
 |   |   +-- game/
-|   |       |-- +layout.svelte   # Game layout (with sidebar)
-|   |       |-- +page.svelte     # Dashboard
-|   |       |-- village/
-|   |       |   |-- +page.svelte # Village overview
-|   |       |   |-- buildings/+page.svelte
-|   |       |   +-- troops/+page.svelte
+|   |       |-- +layout.svelte       # Game layout (auth guard, websocket)
 |   |       |-- map/
-|   |       |   +-- +page.svelte # World map
-|   |       |-- army/
-|   |       |   |-- +page.svelte # Army overview
-|   |       |   +-- send/+page.svelte
-|   |       |-- alliance/
-|   |       |   |-- +page.svelte # Alliance home
-|   |       |   |-- members/+page.svelte
-|   |       |   |-- diplomacy/+page.svelte
-|   |       |   +-- chat/+page.svelte
-|   |       |-- reports/
-|   |       |   |-- +page.svelte # Report list
-|   |       |   +-- [id]/+page.svelte
-|   |       |-- messages/
-|   |       |   +-- +page.svelte
-|   |       |-- shop/
-|   |       |   +-- +page.svelte
-|   |       +-- settings/
-|   |           +-- +page.svelte
+|   |       |   +-- +page.svelte     # World map
+|   |       +-- village/
+|   |           +-- +page.svelte     # Village management
 |   |-- lib/
 |   |   |-- components/
-|   |   |   |-- ui/              # Reusable UI components
+|   |   |   |-- ui/                  # Base UI components
 |   |   |   |   |-- Button.svelte
 |   |   |   |   |-- Card.svelte
-|   |   |   |   |-- Modal.svelte
+|   |   |   |   |-- Modal.svelte     # Base modal wrapper
+|   |   |   |   |-- Drawer.svelte    # Slide drawer
+|   |   |   |   |-- BottomSheet.svelte
 |   |   |   |   |-- Toast.svelte
-|   |   |   |   |-- Timer.svelte
-|   |   |   |   +-- ...
-|   |   |   |-- game/            # Game-specific components
+|   |   |   |   |-- Timer.svelte     # Countdown component
+|   |   |   |   |-- ProgressBar.svelte
+|   |   |   |   +-- Tooltip.svelte
+|   |   |   |-- modals/              # All modal contents
+|   |   |   |   |-- auth/
+|   |   |   |   |   |-- LoginModal.svelte
+|   |   |   |   |   +-- RegisterModal.svelte
+|   |   |   |   |-- shared/
+|   |   |   |   |   |-- PlayerProfileModal.svelte
+|   |   |   |   |   +-- SettingsModal.svelte
+|   |   |   |   |-- map/
+|   |   |   |   |   |-- TileDetailModal.svelte
+|   |   |   |   |   |-- SendArmyModal.svelte
+|   |   |   |   |   |-- ArmyListModal.svelte
+|   |   |   |   |   +-- SearchModal.svelte
+|   |   |   |   +-- village/
+|   |   |   |       |-- BuildingDetailModal.svelte
+|   |   |   |       |-- TroopTrainingModal.svelte
+|   |   |   |       |-- ResourceFieldsModal.svelte
+|   |   |   |       |-- ReportsModal.svelte
+|   |   |   |       |-- MessagesModal.svelte
+|   |   |   |       +-- ShopModal.svelte          # Phase 2
+|   |   |   |-- game/                # Game-specific components
 |   |   |   |   |-- ResourceBar.svelte
 |   |   |   |   |-- BuildingSlot.svelte
+|   |   |   |   |-- BuildingGrid.svelte
 |   |   |   |   |-- TroopCard.svelte
+|   |   |   |   |-- MapCanvas.svelte    # Interactive map
 |   |   |   |   |-- MapTile.svelte
-|   |   |   |   |-- ArmyRow.svelte
-|   |   |   |   +-- ...
+|   |   |   |   |-- ArmyMarker.svelte
+|   |   |   |   |-- VillageMarker.svelte
+|   |   |   |   +-- QueueItem.svelte
+|   |   |   |-- drawers/             # Drawer contents
+|   |   |   |   |-- AllianceDrawer.svelte     # Tabs: Overview, Members, Diplomacy, Chat
+|   |   |   |   |-- NotificationsDrawer.svelte
+|   |   |   |   |-- BuildingQueueDrawer.svelte
+|   |   |   |   +-- TroopQueueDrawer.svelte
 |   |   |   +-- layout/
-|   |   |       |-- Navbar.svelte
-|   |   |       |-- Sidebar.svelte
-|   |   |       +-- Footer.svelte
+|   |   |       |-- Navbar.svelte        # Top bar (resources, nav)
+|   |   |       |-- GameHeader.svelte    # In-game header
+|   |   |       +-- MobileNav.svelte     # Bottom nav for mobile
 |   |   |-- stores/
-|   |   |   |-- auth.ts          # Auth state
-|   |   |   |-- player.ts        # Player state
-|   |   |   |-- village.ts       # Selected village
-|   |   |   |-- resources.ts     # Live resources
-|   |   |   +-- notifications.ts # Toast/alerts
+|   |   |   |-- auth.ts              # Auth state (Firebase)
+|   |   |   |-- player.ts            # Player data
+|   |   |   |-- village.ts           # Selected village state
+|   |   |   |-- resources.ts         # Live resources (real-time update)
+|   |   |   |-- armies.ts            # Active armies
+|   |   |   |-- modal.ts             # Modal state management
+|   |   |   |-- notifications.ts     # Toast/alerts
+|   |   |   +-- websocket.ts         # WebSocket connection state
 |   |   |-- services/
-|   |   |   |-- api.ts           # API client
-|   |   |   |-- websocket.ts     # WebSocket client
-|   |   |   +-- storage.ts       # LocalStorage helpers
+|   |   |   |-- api.ts               # REST API client
+|   |   |   |-- websocket.ts         # WebSocket client
+|   |   |   |-- firebase.ts          # Firebase Auth client
+|   |   |   +-- storage.ts           # LocalStorage helpers
 |   |   |-- utils/
-|   |   |   |-- format.ts        # Number/date formatting
-|   |   |   |-- timer.ts         # Countdown utilities
-|   |   |   +-- constants.ts     # Game constants
+|   |   |   |-- format.ts            # Number/date formatting
+|   |   |   |-- timer.ts             # Countdown utilities
+|   |   |   |-- map.ts               # Map coordinate helpers
+|   |   |   +-- constants.ts         # Game constants
 |   |   +-- i18n/
-|   |       |-- index.ts         # i18n setup
+|   |       |-- index.ts             # i18n setup (svelte-i18n)
 |   |       +-- locales/
 |   |           |-- th.json
-|   |           |-- en.json
-|   |           |-- vi.json
-|   |           +-- id.json
+|   |           +-- en.json
 |   |-- app.html
-|   |-- app.css                  # Global styles (Tailwind)
-|   +-- hooks.server.ts          # Server hooks
+|   |-- app.css                      # Global styles (Tailwind)
+|   +-- hooks.server.ts              # Server hooks (auth check)
 |-- static/
 |   |-- images/
-|   |   |-- tribes/
-|   |   |-- buildings/
-|   |   |-- troops/
-|   |   +-- ui/
+|   |   |-- tribes/                  # Tribe artwork
+|   |   |-- buildings/               # Building icons/sprites
+|   |   |-- troops/                  # Troop icons/sprites
+|   |   |-- map/                     # Map tiles/terrain
+|   |   +-- ui/                      # UI elements
 |   +-- favicon.ico
 |-- svelte.config.js
 |-- tailwind.config.js
@@ -890,17 +975,19 @@ frontend/
 
 | Category | Library/Service | Purpose |
 |----------|-----------------|---------|
-| **Backend** | | |
-| HTTP Router | chi / gin | Fast HTTP routing |
-| Database | pgx | PostgreSQL driver |
-| Cache | go-redis | Redis client |
-| WebSocket | gorilla/websocket | WebSocket handling |
-| JWT | golang-jwt/jwt | JWT auth |
-| Auth | firebase.google.com/go/v4 | Firebase Admin SDK |
-| Validation | go-playground/validator | Request validation |
-| Migration | golang-migrate | DB migrations |
-| Logging | zerolog / zap | Structured logging |
-| Config | viper | Configuration |
+| **Backend (Rust)** | | |
+| HTTP Framework | axum | Fast, ergonomic web framework |
+| Database | sqlx | Async PostgreSQL with compile-time checked queries |
+| Cache | redis-rs | Redis client |
+| WebSocket | tokio-tungstenite | WebSocket handling |
+| Auth | firebase-admin-rs | Firebase Admin SDK (or custom JWT verification) |
+| Validation | validator | Request validation with derive macros |
+| Migration | sqlx-cli | DB migrations |
+| Logging | tracing + tracing-subscriber | Structured logging |
+| Config | config-rs | Configuration management |
+| Serialization | serde + serde_json | JSON serialization |
+| Async Runtime | tokio | Async runtime |
+| Error Handling | thiserror + anyhow | Custom error types |
 | **Frontend** | | |
 | UI Framework | SvelteKit | Full-stack framework |
 | Styling | Tailwind CSS | Utility-first CSS |
@@ -935,7 +1022,9 @@ frontend/
 | Docker | Containerization |
 | Docker Compose | Local development |
 | GitHub Actions | CI/CD |
-| golangci-lint | Go linting |
+| clippy | Rust linting |
+| rustfmt | Rust formatting |
+| cargo-watch | Auto-reload on file changes |
 | ESLint + Prettier | Frontend linting |
 | Playwright | E2E testing |
 
@@ -1007,12 +1096,12 @@ frontend/
 +------------------------------------------+
 |  Nginx (Load Balancer)                    |
 |    |                                      |
-|    +-> Go Server (8 CPU, 16GB RAM)        |
+|    +-> Rust Server (8 CPU, 16GB RAM)      |
 |          |                                |
 |          +-> PostgreSQL (Single)          |
 |          +-> Redis (Single)               |
 |                                           |
-|  Capacity: ~5,000 concurrent users        |
+|  Capacity: ~10,000 concurrent users       |
 +------------------------------------------+
 ```
 
@@ -1032,7 +1121,7 @@ frontend/
 |  +------+------+                                                  |
 |         |                                                         |
 |  +------+------+------+------+------+                             |
-|  | Go App 1   | Go App 2   | Go App 3   |  (Stateless)            |
+|  | Rust App 1 | Rust App 2 | Rust App 3 |  (Stateless)            |
 |  +------+------+------+------+------+------+                      |
 |         |             |             |                             |
 |  +------+-------------+-------------+------+                      |
@@ -1063,7 +1152,7 @@ frontend/
 - **Caching Strategy**
   ```
   Cache Hierarchy:
-  1. Application Memory (go-cache) - Hot data, 1-5 sec TTL
+  1. Application Memory (moka/cached) - Hot data, 1-5 sec TTL
   2. Redis - Shared state, 5-60 sec TTL
   3. PostgreSQL - Source of truth
   ```
@@ -1071,7 +1160,7 @@ frontend/
 #### Game Tick Optimization
 
 - Batch processing (update 1000 villages per tick)
-- Separate game engine goroutine
+- Separate game engine tokio task
 - Event sourcing for army movements
 - Eventual consistency for non-critical updates
 
@@ -1117,7 +1206,7 @@ Alerts:
 docker-compose up -d
 
 # Services:
-# - Go server: localhost:8080
+# - Rust server: localhost:8080
 # - SvelteKit: localhost:5173
 # - PostgreSQL: localhost:5432
 # - Redis: localhost:6379
@@ -1136,12 +1225,12 @@ on:
 
 jobs:
   test:
-    - Run Go tests
+    - Run Rust tests (cargo test)
     - Run frontend tests
-    - Run linters
+    - Run linters (clippy, rustfmt)
 
   build:
-    - Build Go binary
+    - Build Rust binary (cargo build --release)
     - Build SvelteKit
     - Build Docker images
 

@@ -1,9 +1,9 @@
-# Rust Learning Guide for Go Developers
+# Rust Learning Guide for TypeScript Developers
 
 ## สารบัญ
 
 1. [Setup Environment](#1-setup-environment)
-2. [Rust vs Go Comparison](#2-rust-vs-go-comparison)
+2. [Rust vs TypeScript Comparison](#2-rust-vs-typescript-comparison)
 3. [Core Concepts](#3-core-concepts)
 4. [Project Structure](#4-project-structure)
 5. [Common Patterns](#5-common-patterns)
@@ -54,15 +54,15 @@ Extensions แนะนำ:
 
 ---
 
-## 2. Rust vs Go Comparison
+## 2. Rust vs TypeScript Comparison
 
 ### Variables & Types
 
-```go
-// Go
-var name string = "hello"
-name := "hello"
-const MAX = 100
+```typescript
+// TypeScript
+let name: string = "hello";
+const name2 = "hello";
+const MAX = 100;
 ```
 
 ```rust
@@ -78,17 +78,17 @@ count += 1;
 
 ### Functions
 
-```go
-// Go
-func add(a, b int) int {
-    return a + b
+```typescript
+// TypeScript
+function add(a: number, b: number): number {
+    return a + b;
 }
 
-func divide(a, b int) (int, error) {
-    if b == 0 {
-        return 0, errors.New("division by zero")
+function divide(a: number, b: number): number {
+    if (b === 0) {
+        throw new Error("division by zero");
     }
-    return a / b, nil
+    return a / b;
 }
 ```
 
@@ -106,17 +106,26 @@ fn divide(a: i32, b: i32) -> Result<i32, String> {
 }
 ```
 
-### Structs & Methods
+### Structs & Methods (Class vs Struct)
 
-```go
-// Go
-type User struct {
-    ID   int
-    Name string
-}
+```typescript
+// TypeScript
+class User {
+    id: number;
+    name: string;
 
-func (u *User) Greet() string {
-    return "Hello, " + u.Name
+    constructor(id: number, name: string) {
+        this.id = id;
+        this.name = name;
+    }
+
+    greet(): string {
+        return `Hello, ${this.name}`;
+    }
+
+    rename(newName: string): void {
+        this.name = newName;
+    }
 }
 ```
 
@@ -147,12 +156,18 @@ impl User {
 
 ### Error Handling
 
-```go
-// Go
-result, err := doSomething()
-if err != nil {
-    return err
+```typescript
+// TypeScript - try/catch
+try {
+    const result = doSomething();
+} catch (error) {
+    throw error;
 }
+
+// หรือ Promise-based
+const result = await doSomething().catch(err => {
+    throw err;
+});
 ```
 
 ```rust
@@ -169,13 +184,17 @@ let value = do_something()?;  // returns early if Err
 
 ### Collections
 
-```go
-// Go
-nums := []int{1, 2, 3}
-nums = append(nums, 4)
+```typescript
+// TypeScript
+const nums: number[] = [1, 2, 3];
+nums.push(4);
 
-m := map[string]int{"a": 1}
-m["b"] = 2
+const m: Map<string, number> = new Map([["a", 1]]);
+m.set("b", 2);
+
+// หรือใช้ Object
+const obj: Record<string, number> = { a: 1 };
+obj["b"] = 2;
 ```
 
 ```rust
@@ -191,10 +210,18 @@ m.insert("b", 2);
 
 ### Interfaces vs Traits
 
-```go
-// Go Interface
-type Reader interface {
-    Read(p []byte) (n int, err error)
+```typescript
+// TypeScript Interface
+interface Reader {
+    read(buf: Uint8Array): Promise<number>;
+}
+
+// Implement interface
+class MyFile implements Reader {
+    async read(buf: Uint8Array): Promise<number> {
+        // implementation
+        return buf.length;
+    }
 }
 ```
 
@@ -936,21 +963,25 @@ docker-down:
 
 ## Quick Reference Card
 
-| Go | Rust | Notes |
-|----|------|-------|
-| `var x int` | `let x: i32` | Immutable by default |
-| `x := 5` | `let x = 5` | Type inference |
-| `var x int = 5` | `let mut x = 5` | Mutable |
-| `nil` | `None` | Option type |
-| `error` | `Result<T, E>` | Error handling |
-| `if err != nil` | `?` operator | Early return on error |
-| `interface{}` | `dyn Trait` / generics | Dynamic dispatch |
-| `go func()` | `tokio::spawn()` | Concurrency |
-| `chan T` | `mpsc::channel()` | Channels |
-| `defer` | `Drop` trait | Cleanup |
-| `struct{}` embedding | `impl Trait for` | Composition |
-| `package` | `mod` | Modules |
+| TypeScript | Rust | Notes |
+|------------|------|-------|
+| `let x: number` | `let x: i32` | Immutable by default in Rust |
+| `const x = 5` | `let x = 5` | Type inference |
+| `let x = 5` | `let mut x = 5` | Mutable |
+| `null / undefined` | `None` | Option type |
+| `throw new Error()` | `Result<T, E>` | Error handling |
+| `try/catch` | `?` operator | Early return on error |
+| `any` / `unknown` | `dyn Trait` / generics | Dynamic dispatch |
+| `Promise` / `async` | `tokio::spawn()` | Concurrency |
+| `EventEmitter` | `mpsc::channel()` | Channels |
+| N/A | `Drop` trait | Cleanup (auto in TS via GC) |
+| `class extends` | `impl Trait for` | Composition |
+| `export` | `pub mod` | Modules |
 | `import` | `use` | Imports |
+| `interface` | `trait` | Contracts |
+| `class` | `struct + impl` | Data + Methods |
+| `Array<T>` | `Vec<T>` | Dynamic arrays |
+| `Map<K,V>` | `HashMap<K,V>` | Hash maps |
 
 ---
 

@@ -20,16 +20,16 @@ Each task is small enough to be reviewed and tested independently.
 
 ## [x] 1.1 Project Setup
 
-### [x] T001: Initialize Go Backend Project
-- **Description:** Create Go module with standard project structure following the backend layout in 02-pland.md. Initialize go.mod, create folder structure, and add base files.
+### [x] T001: Initialize Rust Backend Project
+- **Description:** Create Rust project with Cargo and standard project structure following the backend layout in 02-pland.md. Initialize Cargo.toml, create folder structure, and add base files.
 - **Technical Context:**
-  - Files: `backend/go.mod`, `backend/cmd/server/main.go`
-  - Folders: `internal/config`, `internal/server`, `internal/handler`, `internal/service`, `internal/repository`, `internal/model`, `internal/game`, `internal/realtime`, `internal/pkg`
+  - Files: `backend/Cargo.toml`, `backend/src/main.rs`
+  - Folders: `src/config`, `src/server`, `src/handlers`, `src/services`, `src/repositories`, `src/models`, `src/game`, `src/realtime`, `src/db`, `src/error`
 - **Acceptance Criteria:**
-  - [x] `go mod init` successful with module name `github.com/travillian/tusk-horn`
+  - [x] `cargo init` successful with package name `tusk-horn`
   - [x] All folder structure created as per 02-pland.md Section 4.1
-  - [x] `go build ./...` runs without errors
-  - [x] Main.go prints "Tusk & Horn Server Starting..."
+  - [x] `cargo build` runs without errors
+  - [x] main.rs prints "Tusk & Horn Server Starting..."
 
 ---
 
@@ -62,25 +62,25 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [x] T004: Setup Configuration Management (Go)
-- **Description:** Implement configuration loading using Viper. Support environment variables and config files.
+### [x] T004: Setup Configuration Management (Rust)
+- **Description:** Implement configuration loading using config-rs crate. Support environment variables and config files.
 - **Technical Context:**
-  - Files: `internal/config/config.go`
-  - Dependency: `github.com/spf13/viper`
+  - Files: `src/config/mod.rs`
+  - Dependency: `config`, `serde`, `dotenvy`
 - **Acceptance Criteria:**
-  - [x] Config struct with Database, Redis, Server, JWT sections
-  - [x] Loads from environment variables (DB_HOST, REDIS_URL, etc.)
-  - [x] Loads from config.yaml if present
+  - [x] Config struct with Database, Redis, Server, Firebase sections
+  - [x] Loads from environment variables (DATABASE_URL, REDIS_URL, etc.)
+  - [x] Loads from config.toml if present
   - [x] Validates required fields on startup
   - [x] Unit test for config loading
 
 ---
 
 ### [x] T005: Setup PostgreSQL Connection Pool
-- **Description:** Create database connection pool using pgx. Implement connection health check.
+- **Description:** Create database connection pool using SQLx. Implement connection health check.
 - **Technical Context:**
-  - Files: `internal/pkg/database/postgres.go`
-  - Dependency: `github.com/jackc/pgx/v5`
+  - Files: `src/db/postgres.rs`
+  - Dependency: `sqlx` with `postgres` and `runtime-tokio` features
 - **Acceptance Criteria:**
   - [x] Connection pool initialized with configurable size
   - [x] Ping function to verify connectivity
@@ -93,8 +93,8 @@ Each task is small enough to be reviewed and tested independently.
 ### [x] T006: Setup Redis Connection
 - **Description:** Create Redis client wrapper for caching and pub/sub.
 - **Technical Context:**
-  - Files: `internal/pkg/database/redis.go`
-  - Dependency: `github.com/redis/go-redis/v9`
+  - Files: `src/db/redis.rs`
+  - Dependency: `redis` with `tokio-comp` feature
 - **Acceptance Criteria:**
   - [x] Redis client initialized with config
   - [x] Ping function to verify connectivity
@@ -105,37 +105,37 @@ Each task is small enough to be reviewed and tested independently.
 ---
 
 ### [x] T007: Setup Database Migrations
-- **Description:** Create migration system using golang-migrate. Add first migration for extensions.
+- **Description:** Create migration system using SQLx CLI. Add first migration for extensions.
 - **Technical Context:**
-  - Files: `migrations/001_init.up.sql`, `migrations/001_init.down.sql`, `scripts/migrate.go`
-  - Dependency: `github.com/golang-migrate/migrate/v4`
+  - Files: `migrations/000001_init.up.sql`, `migrations/000001_init.down.sql`
+  - Tool: `sqlx-cli` (installed via cargo)
 - **Acceptance Criteria:**
-  - [x] Migration CLI command: `make migrate-up`, `make migrate-down`
+  - [x] Migration CLI command: `sqlx migrate run`, `sqlx migrate revert`
   - [x] First migration enables uuid-ossp and pgcrypto extensions
-  - [x] Migrations tracked in schema_migrations table
+  - [x] Migrations tracked in _sqlx_migrations table
   - [x] Rollback works correctly
 
 ---
 
-### [x] T008: Setup HTTP Server with Chi Router
-- **Description:** Create HTTP server with Chi router, graceful shutdown, and base middleware.
+### [x] T008: Setup HTTP Server with Axum
+- **Description:** Create HTTP server with Axum framework, graceful shutdown, and base middleware.
 - **Technical Context:**
-  - Files: `internal/server/server.go`, `internal/server/routes.go`
-  - Dependency: `github.com/go-chi/chi/v5`
+  - Files: `src/server/mod.rs`, `src/server/routes.rs`
+  - Dependency: `axum`, `tokio`, `tower-http`
 - **Acceptance Criteria:**
   - [x] Server starts on configured port
   - [x] Graceful shutdown on SIGTERM/SIGINT
   - [x] Health check endpoint: GET /health returns 200
-  - [ ] Request logging middleware
-  - [x] Recovery middleware for panics
+  - [ ] Request logging middleware (tower-http TraceLayer)
+  - [x] Panic recovery with tower-http CatchPanic
 
 ---
 
 ### [x] T009: Setup CORS Middleware
 - **Description:** Implement CORS middleware with configurable allowed origins.
 - **Technical Context:**
-  - Files: `internal/server/middleware/cors.go`
-  - Dependency: `github.com/go-chi/cors`
+  - Files: `src/server/middleware/cors.rs`
+  - Dependency: `tower-http` CorsLayer
 - **Acceptance Criteria:**
   - [ ] Allowed origins configurable via config
   - [ ] Supports credentials for authenticated requests
@@ -145,12 +145,12 @@ Each task is small enough to be reviewed and tested independently.
 ---
 
 ### [x] T010: Setup Request Validation
-- **Description:** Create request validation using go-playground/validator with custom error messages.
+- **Description:** Create request validation using validator crate with derive macros.
 - **Technical Context:**
-  - Files: `internal/pkg/validator/validator.go`
-  - Dependency: `github.com/go-playground/validator/v10`
+  - Files: `src/error/validation.rs`
+  - Dependency: `validator` with `derive` feature
 - **Acceptance Criteria:**
-  - [x] Validator instance with custom tags
+  - [x] Validation derive macros on DTOs
   - [x] Custom error formatter returning field-level errors
   - [x] Thai-friendly validation messages
   - [x] Unit tests for common validations (email, password, etc.)
@@ -158,16 +158,16 @@ Each task is small enough to be reviewed and tested independently.
 ---
 
 ### [x] T011: Setup Structured Logging
-- **Description:** Implement structured logging with zerolog. Log levels and JSON format.
+- **Description:** Implement structured logging with tracing crate. Log levels and JSON format.
 - **Technical Context:**
-  - Files: `internal/pkg/logger/logger.go`
-  - Dependency: `github.com/rs/zerolog`
+  - Files: `src/main.rs` (tracing subscriber init)
+  - Dependency: `tracing`, `tracing-subscriber` with `json` feature
 - **Acceptance Criteria:**
   - [x] Log levels: debug, info, warn, error
   - [x] JSON output for production
   - [x] Pretty console output for development
-  - [x] Request ID tracking
-  - [x] Context-aware logging
+  - [x] Request ID tracking (tower-http)
+  - [x] Span-aware logging
 
 ---
 
@@ -434,15 +434,15 @@ Each task is small enough to be reviewed and tested independently.
 ## 1.3 Auth System
  
 ### T031: Setup Firebase Project & Admin SDK
-- **Description:** Initialize Firebase project and setup Admin SDK in Go backend.
+- **Description:** Initialize Firebase project and setup Admin SDK in Rust backend.
 - **Technical Context:**
-  - Files: `internal/pkg/firebase/client.go`
-  - Dependency: `firebase.google.com/go/v4`
-  - Config: `GOOGLE_APPLICATION_CREDENTIALS` (Service Account JSON)
+  - Files: `src/firebase/client.rs`
+  - Dependency: Custom JWT verification with `jsonwebtoken` crate (Firebase Admin SDK for Rust is limited)
+  - Config: `GOOGLE_APPLICATION_CREDENTIALS` or Firebase project config
 - **Acceptance Criteria:**
   - [x] Firebase Project created in Console
   - [x] Service Account JSON added to local env (gitignored)
-  - [x] Firebase App initialized in backend
+  - [x] Firebase token verification implemented
   - [x] Verify ID Token method implemented
   - [ ] Unit test with mock
  
@@ -451,7 +451,7 @@ Each task is small enough to be reviewed and tested independently.
 ### T032: Create User Model and Repository
 - **Description:** Implement User model linked to Firebase UID.
 - **Technical Context:**
-  - Files: `internal/model/user.go`, `internal/repository/user_repo.go`
+  - Files: `src/models/user.rs`, `src/repositories/user.rs`
 - **Acceptance Criteria:**
   - [ ] User struct: id (UUID), firebase_uid (String), email, role
   - [ ] CreateOrUpdateFromFirebase method (Upsert)
@@ -463,12 +463,12 @@ Each task is small enough to be reviewed and tested independently.
 ### T033: Implement Auth Middleware (Firebase)
 - **Description:** Create middleware to verify Firebase ID Token from Authorization header.
 - **Technical Context:**
-  - Files: `internal/server/middleware/auth.go`
+  - Files: `src/server/middleware/auth.rs`
 - **Acceptance Criteria:**
   - [ ] Extract Bearer token
-  - [ ] Verify token with Firebase Admin SDK
+  - [ ] Verify token with Firebase (JWT verification)
   - [ ] Extract UID and Claims
-  - [ ] Set user context in request
+  - [ ] Set user in request extensions
   - [ ] Return 401 if invalid
   - [ ] Rate limiting applied
  
@@ -477,7 +477,7 @@ Each task is small enough to be reviewed and tested independently.
 ### T034: Implement Auth Handlers
 - **Description:** Create handler to sync Firebase user to local DB (optional explicit sync or auto-sync via middleware).
 - **Technical Context:**
-  - Files: `internal/handler/auth.go`
+  - Files: `src/handlers/auth.rs`
   - Endpoints: POST /auth/login (Sync user data)
 - **Acceptance Criteria:**
   - [ ] Receive ID Token (optional, mostly handled by middleware)
@@ -552,7 +552,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T044: Create Server Model and Repository
 - **Description:** Implement Server model and repository.
 - **Technical Context:**
-  - Files: `internal/model/server.go`, `internal/repository/server_repo.go`
+  - Files: `src/models/server.rs`, `src/repositories/server_repo.rs`
 - **Acceptance Criteria:**
   - [ ] Server struct with all fields
   - [ ] List, FindByID, FindByCode methods
@@ -564,7 +564,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T045: Create Player Model and Repository
 - **Description:** Implement Player model and repository.
 - **Technical Context:**
-  - Files: `internal/model/player.go`, `internal/repository/player_repo.go`
+  - Files: `src/models/player.rs`, `src/repositories/player_repo.rs`
 - **Acceptance Criteria:**
   - [ ] Player struct with all fields
   - [ ] Create, FindByID, FindByUserServer methods
@@ -577,7 +577,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T046: Create Tribe Model and Repository
 - **Description:** Implement Tribe model and repository.
 - **Technical Context:**
-  - Files: `internal/model/tribe.go`, `internal/repository/tribe_repo.go`
+  - Files: `src/models/tribe.rs`, `src/repositories/tribe_repo.rs`
 - **Acceptance Criteria:**
   - [ ] Tribe struct with i18n handling
   - [ ] List all tribes
@@ -589,7 +589,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T047: Implement Server Service
 - **Description:** Create service for server operations.
 - **Technical Context:**
-  - Files: `internal/service/server_service.go`
+  - Files: `src/services/server_service.rs`
 - **Acceptance Criteria:**
   - [ ] List available servers (status = running)
   - [ ] Get server details with player count
@@ -600,7 +600,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T048: Implement Player Service
 - **Description:** Create service for player operations.
 - **Technical Context:**
-  - Files: `internal/service/player_service.go`
+  - Files: `src/services/player_service.rs`
 - **Acceptance Criteria:**
   - [ ] JoinServer: create player, validate tribe, set protection
   - [ ] GetCurrentPlayer: return player with tribe info
@@ -612,7 +612,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T049: Implement Server Handlers
 - **Description:** Create HTTP handlers for server endpoints.
 - **Technical Context:**
-  - Files: `internal/handler/server.go`
+  - Files: `src/handlers/server.rs`
   - Endpoints: GET /servers, GET /servers/:id, POST /servers/:id/join
 - **Acceptance Criteria:**
   - [ ] List servers with filtering
@@ -626,7 +626,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T050: Implement Player Handlers
 - **Description:** Create HTTP handlers for player endpoints.
 - **Technical Context:**
-  - Files: `internal/handler/player.go`
+  - Files: `src/handlers/player.rs`
   - Endpoints: GET /players/me, PATCH /players/me, GET /tribes
 - **Acceptance Criteria:**
   - [ ] Get current player info
@@ -680,7 +680,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T054: Create Village Model and Repository
 - **Description:** Implement Village model and repository.
 - **Technical Context:**
-  - Files: `internal/model/village.go`, `internal/repository/village_repo.go`
+  - Files: `src/models/village.rs`, `src/repositories/village_repo.rs`
 - **Acceptance Criteria:**
   - [ ] Village struct with resources as Decimal
   - [ ] Create, FindByID, FindByPlayer methods
@@ -693,7 +693,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T055: Create Building Model and Repository
 - **Description:** Implement Building model and repository.
 - **Technical Context:**
-  - Files: `internal/model/building.go`, `internal/repository/building_repo.go`
+  - Files: `src/models/building.rs`, `src/repositories/building_repo.rs`
 - **Acceptance Criteria:**
   - [ ] Building struct with upgrade status
   - [ ] FindByVillage, FindByID methods
@@ -706,7 +706,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T056: Create Building Definitions Data
 - **Description:** Define building stats, costs, and requirements.
 - **Technical Context:**
-  - Files: `internal/game/building_data.go`
+  - Files: `src/game/building_data.rs`
 - **Acceptance Criteria:**
   - [ ] Struct for building definition
   - [ ] All 23 building types with base stats
@@ -719,7 +719,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T057: Implement Village Service
 - **Description:** Create service for village operations.
 - **Technical Context:**
-  - Files: `internal/service/village_service.go`
+  - Files: `src/services/village_service.rs`
 - **Acceptance Criteria:**
   - [ ] CreateStartingVillage: random position, starter buildings
   - [ ] GetVillageDetails: with buildings and resources
@@ -731,7 +731,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T058: Implement Building Service
 - **Description:** Create service for building operations.
 - **Technical Context:**
-  - Files: `internal/service/building_service.go`
+  - Files: `src/services/building_service.rs`
 - **Acceptance Criteria:**
   - [ ] StartBuildingUpgrade: validate resources, requirements
   - [ ] CancelBuilding: refund resources (partial)
@@ -744,7 +744,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T059: Implement Village Handlers
 - **Description:** Create HTTP handlers for village endpoints.
 - **Technical Context:**
-  - Files: `internal/handler/village.go`
+  - Files: `src/handlers/village.rs`
   - Endpoints: GET /villages, GET /villages/:id, PATCH /villages/:id
 - **Acceptance Criteria:**
   - [ ] List player's villages
@@ -757,7 +757,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T060: Implement Building Handlers
 - **Description:** Create HTTP handlers for building endpoints.
 - **Technical Context:**
-  - Files: `internal/handler/building.go`
+  - Files: `src/handlers/building.rs`
   - Endpoints: GET /villages/:id/buildings, POST /villages/:id/buildings
 - **Acceptance Criteria:**
   - [ ] List buildings in village
@@ -861,7 +861,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T068: Create Troop Model and Repository
 - **Description:** Implement Troop and TroopQueue models.
 - **Technical Context:**
-  - Files: `internal/model/troop.go`, `internal/repository/troop_repo.go`
+  - Files: `src/models/troop.rs`, `src/repositories/troop_repo.rs`
 - **Acceptance Criteria:**
   - [ ] Troop struct with count per type
   - [ ] TroopQueue struct for training
@@ -874,7 +874,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T069: Create Troop Definitions Data
 - **Description:** Define troop stats and costs.
 - **Technical Context:**
-  - Files: `internal/game/troop_data.go`
+  - Files: `src/game/troop_data.rs`
 - **Acceptance Criteria:**
   - [ ] Struct for troop definition
   - [ ] All 16 troop types with stats
@@ -887,7 +887,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T070: Implement Troop Service
 - **Description:** Create service for troop operations.
 - **Technical Context:**
-  - Files: `internal/service/troop_service.go`
+  - Files: `src/services/troop_service.rs`
 - **Acceptance Criteria:**
   - [ ] GetVillageTroops: list all troops
   - [ ] StartTraining: validate resources, add to queue
@@ -900,7 +900,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T071: Implement Troop Handlers
 - **Description:** Create HTTP handlers for troop endpoints.
 - **Technical Context:**
-  - Files: `internal/handler/troop.go`
+  - Files: `src/handlers/troop.rs`
   - Endpoints: GET /villages/:id/troops, POST /villages/:id/troops
 - **Acceptance Criteria:**
   - [ ] List troops in village
@@ -955,7 +955,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T075: Create MapTile Model and Repository
 - **Description:** Implement MapTile model for terrain data.
 - **Technical Context:**
-  - Files: `internal/model/map_tile.go`, `internal/repository/map_repo.go`
+  - Files: `src/models/map_tile.rs`, `src/repositories/map_repo.rs`
 - **Acceptance Criteria:**
   - [ ] MapTile struct with terrain, oasis
   - [ ] GetTilesInArea: fetch tiles in viewport
@@ -967,7 +967,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T076: Create Map Generation Script
 - **Description:** Create script to generate map tiles for a server.
 - **Technical Context:**
-  - Files: `scripts/generate_map.go`
+  - Files: `scripts/generate_map.rs`
 - **Acceptance Criteria:**
   - [ ] Generate 200x200 grid
   - [ ] Random terrain distribution
@@ -980,7 +980,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T077: Implement Map Service
 - **Description:** Create service for map operations.
 - **Technical Context:**
-  - Files: `internal/service/map_service.go`
+  - Files: `src/services/map_service.rs`
 - **Acceptance Criteria:**
   - [ ] GetMapData: tiles + villages in viewport
   - [ ] GetTileDetails: tile info + village if present
@@ -992,7 +992,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T078: Implement Map Handlers
 - **Description:** Create HTTP handlers for map endpoints.
 - **Technical Context:**
-  - Files: `internal/handler/map.go`
+  - Files: `src/handlers/map.rs`
   - Endpoints: GET /map, GET /map/:x/:y, GET /map/search
 - **Acceptance Criteria:**
   - [ ] Get map tiles with viewport params (x, y, width, height)
@@ -1060,7 +1060,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T083: Create Army Model and Repository
 - **Description:** Implement Army model for moving troops.
 - **Technical Context:**
-  - Files: `internal/model/army.go`, `internal/repository/army_repo.go`
+  - Files: `src/models/army.rs`, `src/repositories/army_repo.rs`
 - **Acceptance Criteria:**
   - [ ] Army struct with JSONB troops/resources
   - [ ] Create, FindByID, FindByPlayer methods
@@ -1073,7 +1073,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T084: Implement Combat Formulas
 - **Description:** Create combat calculation formulas.
 - **Technical Context:**
-  - Files: `internal/game/combat.go`, `internal/game/formula.go`
+  - Files: `src/game/combat.rs`, `src/game/formula.rs`
 - **Acceptance Criteria:**
   - [ ] Attack power calculation
   - [ ] Defense power (infantry vs cavalry)
@@ -1087,7 +1087,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T085: Implement Army Service
 - **Description:** Create service for army operations.
 - **Technical Context:**
-  - Files: `internal/service/army_service.go`
+  - Files: `src/services/army_service.rs`
 - **Acceptance Criteria:**
   - [ ] SendArmy: validate troops, calculate travel time
   - [ ] RecallArmy: if not arrived yet
@@ -1100,7 +1100,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T086: Implement Combat Service
 - **Description:** Create service for battle execution.
 - **Technical Context:**
-  - Files: `internal/service/combat_service.go`
+  - Files: `src/services/combat_service.rs`
 - **Acceptance Criteria:**
   - [ ] ExecuteBattle: calculate result, update troops
   - [ ] Raid: steal resources based on carry capacity
@@ -1113,7 +1113,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T087: Implement Army Handlers
 - **Description:** Create HTTP handlers for army endpoints.
 - **Technical Context:**
-  - Files: `internal/handler/army.go`
+  - Files: `src/handlers/army.rs`
   - Endpoints: GET /armies, POST /armies, DELETE /armies/:id
 - **Acceptance Criteria:**
   - [ ] List player's armies
@@ -1168,7 +1168,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T091: Create Game Tick Engine
 - **Description:** Implement main game tick engine that runs periodic updates.
 - **Technical Context:**
-  - Files: `internal/game/engine.go`
+  - Files: `src/game/engine.rs`
 - **Acceptance Criteria:**
   - [ ] Start/Stop methods
   - [ ] Configurable tick interval
@@ -1181,7 +1181,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T092: Implement Resource Tick
 - **Description:** Create resource production tick (every 1 minute).
 - **Technical Context:**
-  - Files: `internal/game/resource.go`
+  - Files: `src/game/resource.rs`
 - **Acceptance Criteria:**
   - [ ] Batch update all villages
   - [ ] Calculate production based on rates
@@ -1194,7 +1194,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T093: Implement Building Tick
 - **Description:** Create building completion tick (every 1 second).
 - **Technical Context:**
-  - Files: `internal/game/building_tick.go`
+  - Files: `src/game/building_tick.rs`
 - **Acceptance Criteria:**
   - [ ] Check buildings with ends_at <= now
   - [ ] Complete upgrade, update level
@@ -1207,7 +1207,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T094: Implement Troop Training Tick
 - **Description:** Create troop training completion tick (every 1 second).
 - **Technical Context:**
-  - Files: `internal/game/troop_tick.go`
+  - Files: `src/game/troop_tick.rs`
 - **Acceptance Criteria:**
   - [ ] Check training queues with ends_at <= now
   - [ ] Add troops to garrison
@@ -1220,7 +1220,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T095: Implement Army Arrival Tick
 - **Description:** Create army arrival processing tick (every 1 second).
 - **Technical Context:**
-  - Files: `internal/game/army_tick.go`
+  - Files: `src/game/army_tick.rs`
 - **Acceptance Criteria:**
   - [ ] Check armies with arrives_at <= now
   - [ ] Execute combat or support
@@ -1233,7 +1233,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T096: Implement Starvation Tick
 - **Description:** Create starvation processing tick (every 5 minutes).
 - **Technical Context:**
-  - Files: `internal/game/starvation.go`
+  - Files: `src/game/starvation.rs`
 - **Acceptance Criteria:**
   - [ ] Find villages with negative crop
   - [ ] Calculate troops to kill
@@ -1250,7 +1250,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T097: Create WebSocket Hub
 - **Description:** Implement WebSocket connection hub.
 - **Technical Context:**
-  - Files: `internal/realtime/hub.go`
+  - Files: `src/realtime/hub.rs`
 - **Acceptance Criteria:**
   - [ ] Client registration/unregistration
   - [ ] Channel subscription system
@@ -1263,7 +1263,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T098: Create WebSocket Client Handler
 - **Description:** Implement WebSocket client connection handler.
 - **Technical Context:**
-  - Files: `internal/realtime/client.go`
+  - Files: `src/realtime/client.rs`
 - **Acceptance Criteria:**
   - [ ] Authenticate on connect (JWT)
   - [ ] Message read/write goroutines
@@ -1276,7 +1276,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T099: Define WebSocket Events
 - **Description:** Define all WebSocket event types and payloads.
 - **Technical Context:**
-  - Files: `internal/realtime/events.go`
+  - Files: `src/realtime/events.rs`
 - **Acceptance Criteria:**
   - [ ] Event struct definitions
   - [ ] resource_update event
@@ -1289,7 +1289,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T100: Integrate WebSocket with Handlers
 - **Description:** Add WebSocket endpoint to HTTP server.
 - **Technical Context:**
-  - Files: `internal/handler/websocket.go`, `internal/server/routes.go`
+  - Files: `src/handlers/websocket.rs`, `src/server/routes.rs`
 - **Acceptance Criteria:**
   - [ ] Upgrade HTTP to WebSocket
   - [ ] Pass auth token in query param
@@ -1301,7 +1301,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T101: Integrate WebSocket with Game Engine
 - **Description:** Trigger WebSocket events from game ticks.
 - **Technical Context:**
-  - Files: Update `internal/game/*.go` files
+  - Files: Update `src/game/*.rs` modules
 - **Acceptance Criteria:**
   - [ ] Resource updates trigger events
   - [ ] Building completion triggers event
@@ -1313,7 +1313,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T102: Create Notification Service
 - **Description:** Create service for managing notifications.
 - **Technical Context:**
-  - Files: `internal/service/notification_service.go`
+  - Files: `src/services/notification_service.rs`
 - **Acceptance Criteria:**
   - [ ] Queue notification
   - [ ] Send via WebSocket
@@ -1356,7 +1356,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T105: Create Alliance Model and Repository
 - **Description:** Implement Alliance and AllianceMember models.
 - **Technical Context:**
-  - Files: `internal/model/alliance.go`, `internal/repository/alliance_repo.go`
+  - Files: `src/models/alliance.rs`, `src/repositories/alliance_repo.rs`
 - **Acceptance Criteria:**
   - [ ] Alliance struct with all fields
   - [ ] AllianceMember struct with role
@@ -1369,7 +1369,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T106: Implement Alliance Service
 - **Description:** Create service for alliance operations.
 - **Technical Context:**
-  - Files: `internal/service/alliance_service.go`
+  - Files: `src/services/alliance_service.rs`
 - **Acceptance Criteria:**
   - [ ] CreateAlliance: validate name, set leader
   - [ ] InvitePlayer: create invitation
@@ -1383,7 +1383,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T107: Implement Alliance Handlers
 - **Description:** Create HTTP handlers for alliance endpoints.
 - **Technical Context:**
-  - Files: `internal/handler/alliance.go`
+  - Files: `src/handlers/alliance.rs`
 - **Acceptance Criteria:**
   - [ ] All endpoints from API spec
   - [ ] Role-based authorization
@@ -1450,7 +1450,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T112: Create Report Model and Repository
 - **Description:** Implement Report model for battle/trade/scout reports.
 - **Technical Context:**
-  - Files: `internal/model/report.go`, `internal/repository/report_repo.go`
+  - Files: `src/models/report.rs`, `src/repositories/report_repo.rs`
 - **Acceptance Criteria:**
   - [ ] Report struct with JSONB data
   - [ ] Create, FindByID, FindByPlayer methods
@@ -1463,7 +1463,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T113: Implement Report Service
 - **Description:** Create service for report operations.
 - **Technical Context:**
-  - Files: `internal/service/report_service.go`
+  - Files: `src/services/report_service.rs`
 - **Acceptance Criteria:**
   - [ ] CreateBattleReport: from combat result
   - [ ] CreateScoutReport: from scout mission
@@ -1475,7 +1475,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T114: Implement Report Handlers
 - **Description:** Create HTTP handlers for report endpoints.
 - **Technical Context:**
-  - Files: `internal/handler/report.go`
+  - Files: `src/handlers/report.rs`
 - **Acceptance Criteria:**
   - [ ] List reports with pagination
   - [ ] Get report details
@@ -1513,7 +1513,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T117: Create Message Model and Repository
 - **Description:** Implement Message model for private/alliance messages.
 - **Technical Context:**
-  - Files: `internal/model/message.go`, `internal/repository/message_repo.go`
+  - Files: `src/models/message.rs`, `src/repositories/message_repo.rs`
 - **Acceptance Criteria:**
   - [ ] Message struct
   - [ ] Create, FindByRecipient, FindByAlliance methods
@@ -1525,7 +1525,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T118: Implement Message Handlers
 - **Description:** Create HTTP handlers for message endpoints.
 - **Technical Context:**
-  - Files: `internal/handler/message.go`
+  - Files: `src/handlers/message.rs`
 - **Acceptance Criteria:**
   - [ ] List messages
   - [ ] Send private message
@@ -1554,7 +1554,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T120: Create Transaction Model and Repository
 - **Description:** Implement Transaction model for payment history.
 - **Technical Context:**
-  - Files: `internal/model/transaction.go`, `internal/repository/transaction_repo.go`
+  - Files: `src/models/transaction.rs`, `src/repositories/transaction_repo.rs`
 - **Acceptance Criteria:**
   - [ ] Transaction struct with all fields
   - [ ] Create, UpdateStatus methods
@@ -1566,7 +1566,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T121: Implement Shop Service
 - **Description:** Create service for shop operations.
 - **Technical Context:**
-  - Files: `internal/service/shop_service.go`
+  - Files: `src/services/shop_service.rs`
 - **Acceptance Criteria:**
   - [ ] ListShopItems: gold packages, VIP, skins
   - [ ] InitiatePurchase: create pending transaction
@@ -1579,7 +1579,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T122: Implement Payment Webhook Handler
 - **Description:** Create webhook handler for payment provider callbacks.
 - **Technical Context:**
-  - Files: `internal/handler/shop.go`
+  - Files: `src/handlers/shop.rs`
   - Providers: Omise (Thai), Stripe (international)
 - **Acceptance Criteria:**
   - [ ] Verify webhook signature
@@ -1593,7 +1593,7 @@ Each task is small enough to be reviewed and tested independently.
 ### [] T123: Implement Shop Handlers
 - **Description:** Create HTTP handlers for shop endpoints.
 - **Technical Context:**
-  - Files: `internal/handler/shop.go`
+  - Files: `src/handlers/shop.rs`
 - **Acceptance Criteria:**
   - [ ] List shop items
   - [ ] Initiate purchase
@@ -1808,7 +1808,7 @@ Each task is small enough to be reviewed and tested independently.
 - **Technical Context:**
   - Files: `infra/prometheus.yml`, `infra/grafana/`
 - **Acceptance Criteria:**
-  - [ ] Metrics endpoint in Go server
+  - [ ] Metrics endpoint in Rust server
   - [ ] Prometheus scrape config
   - [ ] Grafana dashboards
   - [ ] Alert rules for critical metrics
