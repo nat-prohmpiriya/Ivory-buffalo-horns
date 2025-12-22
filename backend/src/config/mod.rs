@@ -7,6 +7,12 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub redis: RedisConfig,
     pub jwt: JwtConfig,
+    pub firebase: FirebaseConfig,
+}
+
+#[derive(Debug, Clone)]
+pub struct FirebaseConfig {
+    pub project_id: String,
 }
 
 #[derive(Debug, Clone)]
@@ -69,6 +75,10 @@ impl Config {
                     .unwrap_or_else(|_| "24".to_string())
                     .parse()
                     .context("Invalid JWT_EXPIRATION_HOURS")?,
+            },
+            firebase: FirebaseConfig {
+                project_id: env::var("FIREBASE_PROJECT_ID")
+                    .context("FIREBASE_PROJECT_ID is required")?,
             },
         })
     }

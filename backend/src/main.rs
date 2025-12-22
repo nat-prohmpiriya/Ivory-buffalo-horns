@@ -47,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
     // Build router
     let app = Router::new()
         .route("/health", get(health_check))
-        .nest("/api", handlers::routes())
+        .nest("/api", handlers::routes(state.clone()))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
         .with_state(state);

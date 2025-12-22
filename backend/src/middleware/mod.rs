@@ -1,3 +1,3 @@
-// Middleware modules will be added here
-// pub mod auth;
-// pub mod cors;
+pub mod auth;
+
+pub use auth::{auth_middleware, AuthenticatedUser};

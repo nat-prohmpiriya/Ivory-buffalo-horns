@@ -1,0 +1,2 @@
+- auth with firebase
+- observe with otel 
