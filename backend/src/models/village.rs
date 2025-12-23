@@ -49,6 +49,8 @@ pub struct ProductionRates {
     pub clay_per_hour: i32,
     pub iron_per_hour: i32,
     pub crop_per_hour: i32,
+    pub crop_consumption: i32,
+    pub net_crop_per_hour: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

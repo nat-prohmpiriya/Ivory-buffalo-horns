@@ -32,6 +32,13 @@ pub enum BuildingType {
     CropField,
 }
 
+/// Prerequisite for building
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BuildingPrerequisite {
+    pub building_type: BuildingType,
+    pub min_level: i32,
+}
+
 impl BuildingType {
     pub fn is_resource_field(&self) -> bool {
         matches!(
@@ -50,6 +57,124 @@ impl BuildingType {
             _ if self.is_resource_field() => 20,
             _ => 20,
         }
+    }
+
+    /// Get prerequisites for building this type
+    /// Based on Travian building requirements
+    pub fn prerequisites(&self) -> Vec<BuildingPrerequisite> {
+        match self {
+            // Basic buildings - no prerequisites
+            BuildingType::MainBuilding => vec![],
+            BuildingType::RallyPoint => vec![],
+            BuildingType::Warehouse => vec![
+                BuildingPrerequisite { building_type: BuildingType::MainBuilding, min_level: 1 },
+            ],
+            BuildingType::Granary => vec![
+                BuildingPrerequisite { building_type: BuildingType::MainBuilding, min_level: 1 },
+            ],
+            BuildingType::Wall => vec![],
+
+            // Military buildings
+            BuildingType::Barracks => vec![
+                BuildingPrerequisite { building_type: BuildingType::MainBuilding, min_level: 3 },
+                BuildingPrerequisite { building_type: BuildingType::RallyPoint, min_level: 1 },
+            ],
+            BuildingType::Stable => vec![
+                BuildingPrerequisite { building_type: BuildingType::Smithy, min_level: 3 },
+                BuildingPrerequisite { building_type: BuildingType::Academy, min_level: 5 },
+            ],
+            BuildingType::Workshop => vec![
+                BuildingPrerequisite { building_type: BuildingType::MainBuilding, min_level: 5 },
+                BuildingPrerequisite { building_type: BuildingType::Academy, min_level: 10 },
+            ],
+            BuildingType::Smithy => vec![
+                BuildingPrerequisite { building_type: BuildingType::MainBuilding, min_level: 3 },
+                BuildingPrerequisite { building_type: BuildingType::Barracks, min_level: 1 },
+            ],
+            BuildingType::Academy => vec![
+                BuildingPrerequisite { building_type: BuildingType::MainBuilding, min_level: 3 },
+                BuildingPrerequisite { building_type: BuildingType::Barracks, min_level: 3 },
+            ],
+
+            // Economic buildings
+            BuildingType::Market => vec![
+                BuildingPrerequisite { building_type: BuildingType::MainBuilding, min_level: 1 },
+                BuildingPrerequisite { building_type: BuildingType::Warehouse, min_level: 1 },
+                BuildingPrerequisite { building_type: BuildingType::Granary, min_level: 1 },
+            ],
+            BuildingType::TradeOffice => vec![
+                BuildingPrerequisite { building_type: BuildingType::Stable, min_level: 10 },
+                BuildingPrerequisite { building_type: BuildingType::Market, min_level: 20 },
+            ],
+
+            // Government buildings
+            BuildingType::Embassy => vec![
+                BuildingPrerequisite { building_type: BuildingType::MainBuilding, min_level: 1 },
+            ],
+            BuildingType::TownHall => vec![
+                BuildingPrerequisite { building_type: BuildingType::MainBuilding, min_level: 10 },
+                BuildingPrerequisite { building_type: BuildingType::Academy, min_level: 10 },
+            ],
+            BuildingType::Residence => vec![
+                BuildingPrerequisite { building_type: BuildingType::MainBuilding, min_level: 5 },
+            ],
+            BuildingType::Palace => vec![
+                BuildingPrerequisite { building_type: BuildingType::MainBuilding, min_level: 5 },
+                BuildingPrerequisite { building_type: BuildingType::Embassy, min_level: 1 },
+            ],
+            BuildingType::Treasury => vec![
+                BuildingPrerequisite { building_type: BuildingType::MainBuilding, min_level: 10 },
+            ],
+
+            // Resource fields - no prerequisites
+            BuildingType::Woodcutter => vec![],
+            BuildingType::ClayPit => vec![],
+            BuildingType::IronMine => vec![],
+            BuildingType::CropField => vec![],
+        }
+    }
+
+    /// Population consumed by this building at given level
+    pub fn population_at_level(&self, level: i32) -> i32 {
+        if level == 0 {
+            return 0;
+        }
+
+        let base = match self {
+            // Resource fields - low population
+            BuildingType::Woodcutter => 2,
+            BuildingType::ClayPit => 2,
+            BuildingType::IronMine => 3,
+            BuildingType::CropField => 0, // Crop fields don't consume pop
+
+            // Basic buildings
+            BuildingType::MainBuilding => 2,
+            BuildingType::Warehouse => 1,
+            BuildingType::Granary => 1,
+            BuildingType::RallyPoint => 1,
+            BuildingType::Wall => 0,
+
+            // Military buildings - higher population
+            BuildingType::Barracks => 4,
+            BuildingType::Stable => 5,
+            BuildingType::Workshop => 6,
+            BuildingType::Smithy => 4,
+            BuildingType::Academy => 4,
+
+            // Economic buildings
+            BuildingType::Market => 4,
+            BuildingType::TradeOffice => 6,
+
+            // Government buildings
+            BuildingType::Embassy => 3,
+            BuildingType::TownHall => 4,
+            BuildingType::Residence => 1,
+            BuildingType::Palace => 1,
+            BuildingType::Treasury => 4,
+        };
+
+        // Population increases slightly with level
+        base + (level - 1) / 5
     }
 }
 

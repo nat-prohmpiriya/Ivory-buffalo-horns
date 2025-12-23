@@ -238,6 +238,28 @@ impl VillageRepository {
         Ok(village)
     }
 
+    pub async fn update_population(pool: &PgPool, id: Uuid, population: i32) -> AppResult<Village> {
+        let village = sqlx::query_as::<_, Village>(
+            r#"
+            UPDATE villages
+            SET population = $2,
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING id, user_id, name, x, y, is_capital,
+                      wood, clay, iron, crop,
+                      warehouse_capacity, granary_capacity,
+                      population, culture_points, loyalty,
+                      resources_updated_at, created_at, updated_at
+            "#,
+        )
+        .bind(id)
+        .bind(population)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(village)
+    }
+
     pub async fn count_by_user_id(pool: &PgPool, user_id: Uuid) -> AppResult<i64> {
         let count: (i64,) = sqlx::query_as(
             r#"

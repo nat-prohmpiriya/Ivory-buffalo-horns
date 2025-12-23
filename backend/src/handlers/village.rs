@@ -59,6 +59,8 @@ pub async fn get_village(
         clay_per_hour: production.clay_per_hour,
         iron_per_hour: production.iron_per_hour,
         crop_per_hour: production.crop_per_hour,
+        crop_consumption: production.crop_consumption,
+        net_crop_per_hour: production.net_crop_per_hour,
     };
 
     let response: VillageResponse = village.into();

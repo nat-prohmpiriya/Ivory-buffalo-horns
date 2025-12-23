@@ -13,6 +13,7 @@ use crate::models::building::{BuildingCost, BuildingResponse, BuildingType, Crea
 use crate::repositories::building_repo::BuildingRepository;
 use crate::repositories::user_repo::UserRepository;
 use crate::repositories::village_repo::VillageRepository;
+use crate::services::building_service::BuildingService;
 use crate::AppState;
 
 // GET /api/villages/:village_id/buildings - List buildings in a village
@@ -75,6 +76,9 @@ pub async fn build(
     {
         return Err(AppError::Conflict("Slot already occupied".to_string()));
     }
+
+    // Check prerequisites
+    BuildingService::validate_can_build(&state.db, village_id, &body.building_type).await?;
 
     // Get cost for level 1
     let cost = body.building_type.cost_at_level(1);
