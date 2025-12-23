@@ -1,4 +1,3 @@
+pub mod building_repo;
 pub mod user_repo;
-
-// pub mod player_repo;
-// pub mod village_repo;
+pub mod village_repo;
