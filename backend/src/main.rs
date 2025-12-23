@@ -39,10 +39,13 @@ async fn main() -> anyhow::Result<()> {
 
     // Create app state
     let state = AppState {
-        db: db_pool,
+        db: db_pool.clone(),
         redis: redis_pool,
         config: config.clone(),
     };
+
+    // Start background jobs
+    services::background_jobs::start_background_jobs(db_pool).await;
 
     // Build router
     let app = Router::new()

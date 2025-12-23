@@ -11,6 +11,8 @@ use crate::middleware::AuthenticatedUser;
 use crate::models::village::{CreateVillage, UpdateVillage, VillageResponse};
 use crate::repositories::user_repo::UserRepository;
 use crate::repositories::village_repo::VillageRepository;
+use crate::services::resource_service::ResourceService;
+use crate::services::village_service::VillageService;
 use crate::AppState;
 
 // GET /api/villages - List current user's villages
@@ -46,6 +48,9 @@ pub async fn get_village(
     if village.user_id != user.id {
         return Err(AppError::Forbidden);
     }
+
+    // Update resources based on time elapsed before returning
+    let village = ResourceService::update_village_resources(&state.db, village_id).await?;
 
     Ok(Json(village.into()))
 }
@@ -84,11 +89,12 @@ pub async fn create_village(
         is_capital,
     };
 
-    let village = VillageRepository::create(&state.db, create_village).await?;
+    // Create village with initial buildings
+    let (village, buildings) = VillageService::create_village_with_buildings(&state.db, create_village).await?;
 
     info!(
-        "Village created: {} at ({}, {}) for user {}",
-        village.name, village.x, village.y, user.id
+        "Village created: {} at ({}, {}) for user {} with {} initial buildings",
+        village.name, village.x, village.y, user.id, buildings.len()
     );
 
     Ok(Json(village.into()))

@@ -1,4 +1,3 @@
-// Service modules will be added here
-// pub mod auth_service;
-// pub mod player_service;
-// pub mod village_service;
+pub mod background_jobs;
+pub mod resource_service;
+pub mod village_service;
