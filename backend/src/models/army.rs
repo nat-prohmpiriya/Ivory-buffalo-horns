@@ -96,6 +96,27 @@ pub struct BattleReport {
     pub created_at: DateTime<Utc>,
 }
 
+/// Scout report record
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct ScoutReport {
+    pub id: Uuid,
+    pub attacker_player_id: Uuid,
+    pub defender_player_id: Option<Uuid>,
+    pub attacker_village_id: Uuid,
+    pub defender_village_id: Option<Uuid>,
+    pub attacker_scouts: i32,
+    pub defender_scouts: i32,
+    pub attacker_scouts_lost: i32,
+    pub defender_scouts_lost: i32,
+    pub success: bool,
+    pub scouted_resources: Option<sqlx::types::Json<CarriedResources>>,
+    pub scouted_troops: Option<sqlx::types::Json<ArmyTroops>>,
+    pub occurred_at: DateTime<Utc>,
+    pub read_by_attacker: bool,
+    pub read_by_defender: bool,
+    pub created_at: DateTime<Utc>,
+}
+
 // Request/Response DTOs
 
 #[derive(Debug, Clone, Deserialize)]
@@ -176,6 +197,45 @@ impl BattleReport {
             defender_losses: self.defender_losses.0.clone(),
             resources_stolen: self.resources_stolen.0.clone(),
             winner: self.winner.clone(),
+            occurred_at: self.occurred_at,
+            is_read: if is_attacker { self.read_by_attacker } else { self.read_by_defender },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ScoutReportResponse {
+    pub id: Uuid,
+    pub attacker_player_id: Uuid,
+    pub defender_player_id: Option<Uuid>,
+    pub attacker_village_id: Uuid,
+    pub defender_village_id: Option<Uuid>,
+    pub attacker_scouts: i32,
+    pub defender_scouts: i32,
+    pub attacker_scouts_lost: i32,
+    pub defender_scouts_lost: i32,
+    pub success: bool,
+    pub scouted_resources: Option<CarriedResources>,
+    pub scouted_troops: Option<ArmyTroops>,
+    pub occurred_at: DateTime<Utc>,
+    pub is_read: bool,
+}
+
+impl ScoutReport {
+    pub fn to_response(&self, is_attacker: bool) -> ScoutReportResponse {
+        ScoutReportResponse {
+            id: self.id,
+            attacker_player_id: self.attacker_player_id,
+            defender_player_id: self.defender_player_id,
+            attacker_village_id: self.attacker_village_id,
+            defender_village_id: self.defender_village_id,
+            attacker_scouts: self.attacker_scouts,
+            defender_scouts: self.defender_scouts,
+            attacker_scouts_lost: self.attacker_scouts_lost,
+            defender_scouts_lost: self.defender_scouts_lost,
+            success: self.success,
+            scouted_resources: self.scouted_resources.as_ref().map(|r| r.0.clone()),
+            scouted_troops: self.scouted_troops.as_ref().map(|t| t.0.clone()),
             occurred_at: self.occurred_at,
             is_read: if is_attacker { self.read_by_attacker } else { self.read_by_defender },
         }
