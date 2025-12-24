@@ -47,6 +47,23 @@ export interface BattleReport {
     is_read: boolean;
 }
 
+export interface ScoutReport {
+    id: string;
+    attacker_player_id: string;
+    defender_player_id: string | null;
+    attacker_village_id: string;
+    defender_village_id: string | null;
+    attacker_scouts: number;
+    defender_scouts: number;
+    attacker_scouts_lost: number;
+    defender_scouts_lost: number;
+    success: boolean;
+    scouted_resources: CarriedResources | null;
+    scouted_troops: TroopCounts | null;
+    occurred_at: string;
+    is_read: boolean;
+}
+
 export interface SendArmyRequest {
     to_x: number;
     to_y: number;
@@ -59,6 +76,7 @@ interface ArmyState {
     outgoingArmies: Army[];
     incomingArmies: Army[];
     reports: BattleReport[];
+    scoutReports: ScoutReport[];
     unreadCount: number;
     loading: boolean;
     error: string | null;
@@ -69,6 +87,7 @@ function createArmyStore() {
         outgoingArmies: [],
         incomingArmies: [],
         reports: [],
+        scoutReports: [],
         unreadCount: 0,
         loading: false,
         error: null,
@@ -223,6 +242,56 @@ function createArmyStore() {
             }
         },
 
+        // ==================== Scout Reports ====================
+
+        // Load scout reports
+        loadScoutReports: async () => {
+            update(state => ({ ...state, loading: true, error: null }));
+            try {
+                const reports = await api.get<ScoutReport[]>('/api/scout-reports');
+                update(state => ({
+                    ...state,
+                    scoutReports: reports,
+                    loading: false,
+                }));
+                return reports;
+            } catch (error: any) {
+                const message = error.message || 'Failed to load scout reports';
+                update(state => ({
+                    ...state,
+                    loading: false,
+                    error: message,
+                }));
+                throw error;
+            }
+        },
+
+        // Load single scout report
+        loadScoutReport: async (reportId: string) => {
+            try {
+                return await api.get<ScoutReport>(`/api/scout-reports/${reportId}`);
+            } catch (error: any) {
+                console.error('Failed to load scout report:', error);
+                throw error;
+            }
+        },
+
+        // Mark scout report as read
+        markScoutReportRead: async (reportId: string) => {
+            try {
+                await api.post(`/api/scout-reports/${reportId}/read`, {});
+                update(state => ({
+                    ...state,
+                    scoutReports: state.scoutReports.map(r =>
+                        r.id === reportId ? { ...r, is_read: true } : r
+                    ),
+                    unreadCount: Math.max(0, state.unreadCount - 1),
+                }));
+            } catch (error: any) {
+                console.error('Failed to mark scout report as read:', error);
+            }
+        },
+
         // Clear error
         clearError: () => {
             update(state => ({ ...state, error: null }));
@@ -234,6 +303,7 @@ function createArmyStore() {
                 outgoingArmies: [],
                 incomingArmies: [],
                 reports: [],
+                scoutReports: [],
                 unreadCount: 0,
                 loading: false,
                 error: null,
