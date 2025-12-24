@@ -5,7 +5,8 @@ use uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
 use crate::models::army::{
-    Army, ArmyResponse, ArmyTroops, BattleReport, CarriedResources, MissionType, SendArmyRequest,
+    Army, ArmyResponse, ArmyTroops, BattleReport, CarriedResources, MissionType, ScoutReport,
+    SendArmyRequest,
 };
 use crate::models::troop::TroopDefinition;
 use crate::models::village::Village;
@@ -32,10 +33,13 @@ impl ArmyService {
         from_village_id: Uuid,
         request: SendArmyRequest,
     ) -> AppResult<ArmyResponse> {
-        // Validate mission type (MVP: only Raid and Attack)
-        if !matches!(request.mission, MissionType::Raid | MissionType::Attack) {
+        // Validate mission type (MVP: Raid, Attack, and Scout)
+        if !matches!(
+            request.mission,
+            MissionType::Raid | MissionType::Attack | MissionType::Scout
+        ) {
             return Err(AppError::BadRequest(
-                "Only Raid and Attack missions are currently supported".into(),
+                "Only Raid, Attack, and Scout missions are currently supported".into(),
             ));
         }
 
@@ -150,6 +154,9 @@ impl ArmyService {
                 match army.mission {
                     MissionType::Raid | MissionType::Attack => {
                         Self::handle_hostile_arrival(pool, &army).await
+                    }
+                    MissionType::Scout => {
+                        Self::handle_scout_arrival(pool, &army).await
                     }
                     _ => {
                         // Other mission types not implemented yet
@@ -289,6 +296,183 @@ impl ArmyService {
         }
 
         Ok(())
+    }
+
+    /// Handle scout mission arrival at target
+    async fn handle_scout_arrival(pool: &PgPool, army: &Army) -> AppResult<()> {
+        let definitions = TroopRepository::get_all_definitions(pool).await?;
+
+        // Get target village
+        let target_village = if let Some(village_id) = army.to_village_id {
+            VillageRepository::find_by_id(pool, village_id).await?
+        } else {
+            VillageRepository::find_by_coordinates(pool, army.to_x, army.to_y).await?
+        };
+
+        // If no target village, scouts just return with no info
+        let Some(target) = target_village else {
+            info!("Scout {} arrived at empty tile, returning home", army.id);
+            return Self::initiate_return(
+                pool,
+                army,
+                army.troops.0.clone(),
+                CarriedResources::default(),
+                None,
+            )
+            .await;
+        };
+
+        // Get defender troops
+        let defender_troops_list = TroopRepository::find_by_village(pool, target.id).await?;
+        let defender_troops: ArmyTroops = defender_troops_list
+            .iter()
+            .filter(|t| t.in_village > 0)
+            .map(|t| (t.troop_type, t.in_village))
+            .collect();
+
+        // Calculate scout power (using speed as scout effectiveness)
+        let attacker_scout_power = Self::calculate_scout_power(&army.troops.0, &definitions);
+        let defender_scout_power = Self::calculate_scout_power(&defender_troops, &definitions);
+
+        // Count scouts sent
+        let attacker_scout_count: i32 = army.troops.0.values().sum();
+        let defender_scout_count: i32 = defender_troops.values().sum();
+
+        // Scout combat: attacker needs > defender's power to succeed
+        // Ratio determines success and losses
+        let total_power = attacker_scout_power + defender_scout_power;
+        let attacker_ratio = if total_power > 0.0 {
+            attacker_scout_power / total_power
+        } else {
+            1.0
+        };
+
+        let success = attacker_ratio > 0.4; // Attacker needs at least 40% power ratio to succeed
+
+        // Calculate losses
+        let (attacker_losses, defender_losses) = if defender_scout_power > 0.0 {
+            // Scout combat - both sides lose scouts
+            let attacker_loss_ratio = if success {
+                (1.0 - attacker_ratio) * 0.8 // Winner loses less
+            } else {
+                0.9 + (1.0 - attacker_ratio) * 0.1 // Loser loses 90-100%
+            };
+            let defender_loss_ratio = if success {
+                attacker_ratio * 0.5 // Defender loses based on attacker power
+            } else {
+                0.1 // Defender barely loses if they win
+            };
+
+            let attacker_lost = (attacker_scout_count as f64 * attacker_loss_ratio).ceil() as i32;
+            let defender_lost = (defender_scout_count as f64 * defender_loss_ratio).ceil() as i32;
+
+            (attacker_lost.min(attacker_scout_count), defender_lost.min(defender_scout_count))
+        } else {
+            // No defender scouts - perfect scouting, no losses
+            (0, 0)
+        };
+
+        // Kill defender scouts
+        if defender_losses > 0 {
+            // Distribute losses proportionally across troop types
+            for (troop_type, count) in &defender_troops {
+                let ratio = *count as f64 / defender_scout_count as f64;
+                let losses = (defender_losses as f64 * ratio).ceil() as i32;
+                if losses > 0 {
+                    TroopRepository::kill_troops(pool, target.id, *troop_type, losses.min(*count))
+                        .await?;
+                }
+            }
+        }
+
+        // Prepare scouted info (only if successful)
+        let (scouted_resources, scouted_troops) = if success {
+            let resources = CarriedResources {
+                wood: target.wood,
+                clay: target.clay,
+                iron: target.iron,
+                crop: target.crop,
+            };
+            (Some(resources), Some(defender_troops.clone()))
+        } else {
+            (None, None)
+        };
+
+        // Create scout report
+        let _report = ArmyRepository::create_scout_report(
+            pool,
+            army.player_id,
+            Some(target.user_id),
+            army.from_village_id,
+            Some(target.id),
+            attacker_scout_count,
+            defender_scout_count,
+            attacker_losses,
+            defender_losses,
+            success,
+            scouted_resources.as_ref(),
+            scouted_troops.as_ref(),
+            Utc::now(),
+        )
+        .await?;
+
+        info!(
+            "Scout at ({}, {}): {}! Attacker lost {}/{}, Defender lost {}/{}",
+            army.to_x, army.to_y,
+            if success { "SUCCESS" } else { "FAILED" },
+            attacker_losses, attacker_scout_count,
+            defender_losses, defender_scout_count
+        );
+
+        // Calculate survivors and initiate return
+        let survivors = Self::calculate_scout_survivors(&army.troops.0, attacker_losses, attacker_scout_count);
+        let total_survivors: i32 = survivors.values().sum();
+
+        if total_survivors > 0 {
+            Self::initiate_return(
+                pool,
+                army,
+                survivors,
+                CarriedResources::default(),
+                None,
+            )
+            .await?;
+        } else {
+            // All scouts dead
+            ArmyRepository::delete(pool, army.id).await?;
+        }
+
+        Ok(())
+    }
+
+    /// Calculate scout power based on troop speed (faster troops = better scouts)
+    fn calculate_scout_power(troops: &ArmyTroops, definitions: &[TroopDefinition]) -> f64 {
+        troops
+            .iter()
+            .filter_map(|(troop_type, count)| {
+                definitions
+                    .iter()
+                    .find(|d| d.troop_type == *troop_type)
+                    .map(|d| d.speed as f64 * *count as f64)
+            })
+            .sum()
+    }
+
+    /// Calculate scout survivors after losses
+    fn calculate_scout_survivors(troops: &ArmyTroops, total_losses: i32, total_count: i32) -> ArmyTroops {
+        if total_count <= 0 || total_losses <= 0 {
+            return troops.clone();
+        }
+
+        let loss_ratio = total_losses as f64 / total_count as f64;
+        troops
+            .iter()
+            .map(|(troop_type, count)| {
+                let losses = (*count as f64 * loss_ratio).ceil() as i32;
+                (*troop_type, (*count - losses).max(0))
+            })
+            .filter(|(_, count)| *count > 0)
+            .collect()
     }
 
     /// Handle army returning to home village
@@ -636,5 +820,47 @@ impl ArmyService {
         }
 
         ArmyRepository::mark_report_read(pool, report_id, is_attacker).await
+    }
+
+    // ==================== Scout Reports ====================
+
+    /// Get scout reports for a player
+    pub async fn get_scout_reports(pool: &PgPool, player_id: Uuid) -> AppResult<Vec<ScoutReport>> {
+        ArmyRepository::find_scout_reports_by_player(pool, player_id).await
+    }
+
+    /// Get a single scout report
+    pub async fn get_scout_report(
+        pool: &PgPool,
+        report_id: Uuid,
+    ) -> AppResult<Option<ScoutReport>> {
+        ArmyRepository::find_scout_report_by_id(pool, report_id).await
+    }
+
+    /// Mark scout report as read
+    pub async fn mark_scout_report_read(
+        pool: &PgPool,
+        report_id: Uuid,
+        player_id: Uuid,
+    ) -> AppResult<()> {
+        let report = ArmyRepository::find_scout_report_by_id(pool, report_id)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Scout report not found".into()))?;
+
+        let is_attacker = report.attacker_player_id == player_id;
+        let is_defender = report.defender_player_id == Some(player_id);
+
+        if !is_attacker && !is_defender {
+            return Err(AppError::Forbidden);
+        }
+
+        ArmyRepository::mark_scout_report_read(pool, report_id, is_attacker).await
+    }
+
+    /// Get total unread count (battle + scout reports)
+    pub async fn get_total_unread_count(pool: &PgPool, player_id: Uuid) -> AppResult<i64> {
+        let battle_count = ArmyRepository::count_unread_reports(pool, player_id).await?;
+        let scout_count = ArmyRepository::count_unread_scout_reports(pool, player_id).await?;
+        Ok(battle_count + scout_count)
     }
 }
