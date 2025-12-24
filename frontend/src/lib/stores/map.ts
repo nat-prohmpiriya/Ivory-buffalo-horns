@@ -1,4 +1,5 @@
 import { writable } from "svelte/store";
+import { toast } from "svelte-sonner";
 import { api } from "../api/client";
 
 export interface MapVillageInfo {
@@ -54,11 +55,13 @@ function createMapStore() {
 
                 return tiles;
             } catch (error: any) {
+                const message = error.message || 'Failed to load map';
                 update(state => ({
                     ...state,
                     loading: false,
-                    error: error.message || 'Failed to load map',
+                    error: message,
                 }));
+                toast.error('Map Load Failed', { description: message });
                 throw error;
             }
         },

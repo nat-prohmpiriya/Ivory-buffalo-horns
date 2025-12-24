@@ -1,4 +1,5 @@
 import { writable, get } from "svelte/store";
+import { toast } from "svelte-sonner";
 import { api } from "../api/client";
 
 // Building types matching backend enum + frontend-only types
@@ -182,13 +183,19 @@ function createVillageStore() {
                 const village = await api.get<Village>(`/api/villages/${villageId}`);
                 update(state => ({ ...state, currentVillage: village }));
 
+                toast.success('Construction Started', {
+                    description: `${formatBuildingType(buildingType)} is now being built`
+                });
+
                 return response;
             } catch (error: any) {
+                const message = error.message || 'Failed to build';
                 update(state => ({
                     ...state,
                     loading: false,
-                    error: error.message || 'Failed to build',
+                    error: message,
                 }));
+                toast.error('Build Failed', { description: message });
                 throw error;
             }
         },
@@ -216,13 +223,19 @@ function createVillageStore() {
                 const village = await api.get<Village>(`/api/villages/${villageId}`);
                 update(state => ({ ...state, currentVillage: village }));
 
+                toast.success('Upgrade Started', {
+                    description: `${formatBuildingType(response.building.building_type)} upgrading to level ${response.building.level + 1}`
+                });
+
                 return response;
             } catch (error: any) {
+                const message = error.message || 'Failed to upgrade';
                 update(state => ({
                     ...state,
                     loading: false,
-                    error: error.message || 'Failed to upgrade',
+                    error: message,
                 }));
+                toast.error('Upgrade Failed', { description: message });
                 throw error;
             }
         },
@@ -241,13 +254,17 @@ function createVillageStore() {
                     loading: false,
                 }));
 
+                toast.success('Building Demolished');
+
                 return true;
             } catch (error: any) {
+                const message = error.message || 'Failed to demolish';
                 update(state => ({
                     ...state,
                     loading: false,
-                    error: error.message || 'Failed to demolish',
+                    error: message,
                 }));
+                toast.error('Demolish Failed', { description: message });
                 throw error;
             }
         },

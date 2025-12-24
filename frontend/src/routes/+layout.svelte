@@ -2,6 +2,7 @@
   import '../app.css';
   import '$lib/i18n';
   import { isLoading } from 'svelte-i18n';
+  import { Toaster } from 'svelte-sonner';
   import type { Snippet } from 'svelte';
 
   let { children }: { children: Snippet } = $props();
@@ -19,3 +20,5 @@
 {:else}
   {@render children()}
 {/if}
+
+<Toaster richColors position="top-right" />

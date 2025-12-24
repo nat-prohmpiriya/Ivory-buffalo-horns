@@ -1,36 +1,52 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { Snippet } from 'svelte';
   import { t } from 'svelte-i18n';
+  import { toast } from 'svelte-sonner';
   import { Button } from '$lib/components/ui/button';
   import ResourceBar from '$lib/components/game/ResourceBar.svelte';
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
+  import { villageStore, type Village } from '$lib/stores/village';
+  import { wsClient, wsState } from '$lib/api/ws';
+  import { authStore } from '$lib/stores/auth';
 
   let { children }: { children: Snippet } = $props();
 
-  // Mock data - จะเปลี่ยนเป็น store/API ทีหลัง
-  const mockResources = {
-    wood: 1250,
-    clay: 980,
-    iron: 750,
-    crop: 1100,
-    warehouseCapacity: 2000,
-    granaryCapacity: 2000,
-    woodProduction: 120,
-    clayProduction: 100,
-    ironProduction: 80,
-    cropProduction: 150,
-    cropConsumption: 45
-  };
+  // Subscribe to stores
+  let villageState = $state(villageStore);
+  let villages = $derived($villageState.villages);
+  let currentVillage = $derived($villageState.currentVillage);
+  let loading = $derived($villageState.loading);
 
-  const mockGold = 50;
+  let wsConnState = $state(wsState);
+  let wsConnected = $derived($wsConnState.connected);
 
-  const mockVillages = [
-    { id: '1', name: 'Capital', x: 100, y: 100, isCapital: true },
-    { id: '2', name: 'Outpost', x: 105, y: 98, isCapital: false }
-  ];
+  let selectedVillageId = $state('');
 
-  let selectedVillageId = $state('1');
+  // Convert village data to ResourceBar format
+  const resources = $derived(currentVillage ? {
+    wood: Math.floor(currentVillage.wood),
+    clay: Math.floor(currentVillage.clay),
+    iron: Math.floor(currentVillage.iron),
+    crop: Math.floor(currentVillage.crop),
+    warehouseCapacity: currentVillage.warehouse_capacity,
+    granaryCapacity: currentVillage.granary_capacity,
+    woodProduction: currentVillage.production?.wood_per_hour || 0,
+    clayProduction: currentVillage.production?.clay_per_hour || 0,
+    ironProduction: currentVillage.production?.iron_per_hour || 0,
+    cropProduction: currentVillage.production?.crop_per_hour || 0,
+    cropConsumption: currentVillage.production?.crop_consumption || 0
+  } : {
+    wood: 0, clay: 0, iron: 0, crop: 0,
+    warehouseCapacity: 800, granaryCapacity: 800,
+    woodProduction: 0, clayProduction: 0, ironProduction: 0,
+    cropProduction: 0, cropConsumption: 0
+  });
+
+  // TODO: Get gold from player stats API
+  const gold = 0;
 
   const navItems = [
     { href: '/game/village', labelKey: 'nav.village', icon: '🏘️' },
@@ -40,6 +56,92 @@
   function isActive(href: string): boolean {
     return $page.url.pathname.startsWith(href);
   }
+
+  async function handleVillageChange(villageId: string) {
+    if (!villageId || villageId === currentVillage?.id) return;
+
+    try {
+      await villageStore.loadVillage(villageId);
+      selectedVillageId = villageId;
+    } catch (error: any) {
+      toast.error('Failed to load village', {
+        description: error.message
+      });
+    }
+  }
+
+  // Initialize game data and WebSocket connection
+  onMount(() => {
+    let resourceUpdateInterval: ReturnType<typeof setInterval>;
+    let unsubscribeResourceUpdate: (() => void) | null = null;
+    let unsubscribeBuildComplete: (() => void) | null = null;
+
+    const init = async () => {
+      try {
+        // Load villages if not already loaded
+        if (villages.length === 0) {
+          const loadedVillages = await villageStore.loadVillages();
+          if (loadedVillages.length > 0) {
+            selectedVillageId = loadedVillages[0].id;
+            await villageStore.loadVillage(loadedVillages[0].id);
+          } else {
+            // No villages, redirect to onboarding
+            goto('/onboarding');
+            return;
+          }
+        } else if (currentVillage) {
+          selectedVillageId = currentVillage.id;
+        }
+
+        // Connect WebSocket
+        await wsClient.connect();
+
+        // Subscribe to resource updates
+        unsubscribeResourceUpdate = wsClient.subscribe('resource_update', (data) => {
+          if (data.village_id === currentVillage?.id) {
+            // Reload village to get updated resources
+            villageStore.loadVillage(data.village_id);
+          }
+        });
+
+        // Subscribe to build complete notifications
+        unsubscribeBuildComplete = wsClient.subscribe('build_complete', (data) => {
+          toast.success('Building Complete!', {
+            description: `${data.building_type} has been upgraded to level ${data.level}`
+          });
+          // Reload village and buildings
+          if (currentVillage) {
+            villageStore.loadVillage(currentVillage.id);
+          }
+        });
+
+        // Fallback: Poll for resource updates every 30 seconds if WebSocket not connected
+        resourceUpdateInterval = setInterval(() => {
+          if (currentVillage && !wsConnected) {
+            villageStore.loadVillage(currentVillage.id);
+          }
+        }, 30000);
+
+      } catch (error) {
+        console.error('Failed to initialize game:', error);
+      }
+    };
+
+    init();
+
+    return () => {
+      if (resourceUpdateInterval) {
+        clearInterval(resourceUpdateInterval);
+      }
+      if (unsubscribeResourceUpdate) {
+        unsubscribeResourceUpdate();
+      }
+      if (unsubscribeBuildComplete) {
+        unsubscribeBuildComplete();
+      }
+      wsClient.disconnect();
+    };
+  });
 </script>
 
 <svelte:head>
@@ -61,11 +163,13 @@
         <!-- Village Selector -->
         <select
           bind:value={selectedVillageId}
+          onchange={(e) => handleVillageChange(e.currentTarget.value)}
           class="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          disabled={loading}
         >
-          {#each mockVillages as village}
+          {#each villages as village}
             <option value={village.id}>
-              {village.isCapital ? '👑' : '🏠'} {village.name} ({village.x}|{village.y})
+              {village.is_capital ? '👑' : '🏠'} {village.name} ({village.x}|{village.y})
             </option>
           {/each}
         </select>
@@ -108,7 +212,7 @@
     </div>
 
     <!-- Resource Bar -->
-    <ResourceBar resources={mockResources} gold={mockGold} />
+    <ResourceBar {resources} {gold} />
   </header>
 
   <!-- Main Content -->

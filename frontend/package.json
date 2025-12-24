@@ -34,6 +34,7 @@
 	},
 	"dependencies": {
 		"firebase": "^12.6.0",
-		"svelte-i18n": "^4.0.1"
+		"svelte-i18n": "^4.0.1",
+		"svelte-sonner": "^1.0.7"
 	}
 }
