@@ -1,3 +1,4 @@
+mod army;
 mod auth;
 mod building;
 mod troop;
@@ -14,6 +15,7 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .nest("/villages", village_routes(state.clone()))
         .nest("/map", map_routes(state.clone()))
         .nest("/troops", troop_routes(state.clone()))
+        .nest("/reports", report_routes(state.clone()))
         // Public routes (no auth required)
         .merge(public_routes())
 }
@@ -50,6 +52,10 @@ fn village_routes(state: AppState) -> Router<AppState> {
         .route("/{village_id}/troops/queue", get(troop::get_training_queue))
         .route("/{village_id}/troops/train", post(troop::train_troops))
         .route("/{village_id}/troops/queue/{queue_id}", delete(troop::cancel_training))
+        // Army routes nested under village
+        .route("/{village_id}/armies", post(army::send_army))
+        .route("/{village_id}/armies/outgoing", get(army::list_outgoing))
+        .route("/{village_id}/armies/incoming", get(army::list_incoming))
         .route_layer(middleware::from_fn_with_state(state, auth_middleware))
 }
 
@@ -63,4 +69,13 @@ fn troop_routes(_state: AppState) -> Router<AppState> {
     // Troop definitions moved to public_routes
     // Protected troop routes are nested under /villages/{village_id}/troops
     Router::new()
+}
+
+fn report_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(army::list_reports))
+        .route("/unread-count", get(army::get_unread_count))
+        .route("/{report_id}", get(army::get_report))
+        .route("/{report_id}/read", post(army::mark_report_read))
+        .route_layer(middleware::from_fn_with_state(state, auth_middleware))
 }
