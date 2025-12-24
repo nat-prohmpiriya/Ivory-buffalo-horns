@@ -5,8 +5,8 @@
   import BuildingSlot from '$lib/components/game/BuildingSlot.svelte';
   import BuildingDetailModal from '$lib/components/modals/BuildingDetailModal.svelte';
   import BuildMenuModal from '$lib/components/modals/BuildMenuModal.svelte';
+  import TrainingModal from '$lib/components/modals/TrainingModal.svelte';
   import { villageStore, getBuildingBySlot, type Building, type BuildingType } from '$lib/stores/village';
-  import { authStore } from '$lib/stores/auth';
   import { goto } from '$app/navigation';
 
   type ViewMode = 'village' | 'resources';
@@ -15,9 +15,12 @@
   let viewMode = $state<ViewMode>('village');
   let showBuildingDetail = $state(false);
   let showBuildMenu = $state(false);
+  let showTrainingModal = $state(false);
   let selectedBuilding = $state<Building | null>(null);
   let selectedSlot = $state(0);
   let selectedIsResource = $state(false);
+  let trainingBuildingType = $state<BuildingType>('barracks');
+  let trainingBuildingLevel = $state(1);
   let actionLoading = $state(false);
   let actionError = $state('');
 
@@ -136,6 +139,24 @@
       actionError = err.message || 'Failed to build';
     } finally {
       actionLoading = false;
+    }
+  }
+
+  function handleTrainTroops() {
+    if (!selectedBuilding) return;
+
+    trainingBuildingType = selectedBuilding.building_type;
+    trainingBuildingLevel = selectedBuilding.level;
+    showTrainingModal = true;
+  }
+
+  function openTrainingModalForBuilding(buildingType: BuildingType) {
+    // Find the building of this type in the village
+    const building = buildings.find(b => b.building_type === buildingType);
+    if (building) {
+      trainingBuildingType = buildingType;
+      trainingBuildingLevel = building.level;
+      showTrainingModal = true;
     }
   }
 
@@ -377,7 +398,13 @@
             Quick Actions
           </h3>
           <div class="space-y-2">
-            <Button variant="outline" class="w-full justify-start gap-2" size="sm">
+            <Button
+              variant="outline"
+              class="w-full justify-start gap-2"
+              size="sm"
+              onclick={() => openTrainingModalForBuilding('barracks')}
+              disabled={!buildings.some(b => b.building_type === 'barracks')}
+            >
               <span>⚔️</span>
               Train Troops
             </Button>
@@ -447,6 +474,7 @@
   } : undefined}
   onUpgrade={handleUpgrade}
   onDemolish={handleDemolish}
+  onTrainTroops={handleTrainTroops}
   loading={actionLoading}
   error={actionError}
 />
@@ -464,4 +492,17 @@
   onBuild={handleBuild}
   loading={actionLoading}
   error={actionError}
+/>
+
+<TrainingModal
+  bind:open={showTrainingModal}
+  villageId={currentVillage?.id || ''}
+  buildingType={trainingBuildingType}
+  buildingLevel={trainingBuildingLevel}
+  villageResources={currentVillage ? {
+    wood: currentVillage.wood,
+    clay: currentVillage.clay,
+    iron: currentVillage.iron,
+    crop: currentVillage.crop,
+  } : { wood: 0, clay: 0, iron: 0, crop: 0 }}
 />

@@ -34,11 +34,12 @@
     villageResources?: VillageResources;
     onUpgrade?: () => void;
     onDemolish?: () => void;
+    onTrainTroops?: () => void;
     loading?: boolean;
     error?: string;
   }
 
-  let { open = $bindable(false), building, villageResources, onUpgrade, onDemolish, loading = false, error = '' }: Props = $props();
+  let { open = $bindable(false), building, villageResources, onUpgrade, onDemolish, onTrainTroops, loading = false, error = '' }: Props = $props();
 
   // Use village resources if provided, otherwise fallback to mock data
   const playerResources = $derived(villageResources || {
@@ -266,9 +267,9 @@
         {/if}
 
         <!-- Building Actions -->
-        {#if info.category === 'military' && building.type === 'barracks'}
+        {#if info.category === 'military' && (building.type === 'barracks' || building.type === 'stable' || building.type === 'workshop')}
           <Separator />
-          <Button variant="outline" class="w-full gap-2">
+          <Button variant="outline" class="w-full gap-2" onclick={() => { open = false; onTrainTroops?.(); }}>
             <span>⚔️</span>
             Train Troops
           </Button>
