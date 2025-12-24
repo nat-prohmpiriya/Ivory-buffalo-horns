@@ -286,4 +286,39 @@ impl VillageRepository {
 
         Ok(!exists.0)
     }
+
+    pub async fn add_resources(
+        pool: &PgPool,
+        id: Uuid,
+        wood: i32,
+        clay: i32,
+        iron: i32,
+        crop: i32,
+    ) -> AppResult<Village> {
+        let village = sqlx::query_as::<_, Village>(
+            r#"
+            UPDATE villages
+            SET wood = LEAST(wood + $2, warehouse_capacity),
+                clay = LEAST(clay + $3, warehouse_capacity),
+                iron = LEAST(iron + $4, warehouse_capacity),
+                crop = LEAST(crop + $5, granary_capacity),
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING id, user_id, name, x, y, is_capital,
+                      wood, clay, iron, crop,
+                      warehouse_capacity, granary_capacity,
+                      population, culture_points, loyalty,
+                      resources_updated_at, created_at, updated_at
+            "#,
+        )
+        .bind(id)
+        .bind(wood)
+        .bind(clay)
+        .bind(iron)
+        .bind(crop)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(village)
+    }
 }
