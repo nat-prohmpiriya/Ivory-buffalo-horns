@@ -6,11 +6,10 @@
   import { Button } from '$lib/components/ui/button';
   import ResourceBar from '$lib/components/game/ResourceBar.svelte';
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
-  import { page } from '$app/stores';
+  import { page } from '$app/state';
   import { goto } from '$app/navigation';
-  import { villageStore, type Village } from '$lib/stores/village';
+  import { villageStore } from '$lib/stores/village';
   import { wsClient, wsState } from '$lib/api/ws';
-  import { authStore } from '$lib/stores/auth';
 
   let { children }: { children: Snippet } = $props();
 
@@ -54,7 +53,7 @@
   ];
 
   function isActive(href: string): boolean {
-    return $page.url.pathname.startsWith(href);
+    return page.url.pathname.startsWith(href);
   }
 
   async function handleVillageChange(villageId: string) {
