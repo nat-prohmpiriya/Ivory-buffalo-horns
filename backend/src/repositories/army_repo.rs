@@ -3,7 +3,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::error::AppResult;
-use crate::models::army::{Army, ArmyTroops, BattleReport, CarriedResources, MissionType};
+use crate::models::army::{Army, ArmyTroops, BattleReport, CarriedResources, MissionType, ScoutReport};
 
 pub struct ArmyRepository;
 
@@ -281,6 +281,121 @@ impl ArmyRepository {
             r#"
             SELECT COUNT(*)
             FROM battle_reports
+            WHERE (attacker_player_id = $1 AND read_by_attacker = FALSE)
+               OR (defender_player_id = $1 AND read_by_defender = FALSE)
+            "#,
+        )
+        .bind(player_id)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(count.0)
+    }
+
+    // ==================== Scout Reports ====================
+
+    pub async fn create_scout_report(
+        pool: &PgPool,
+        attacker_player_id: Uuid,
+        defender_player_id: Option<Uuid>,
+        attacker_village_id: Uuid,
+        defender_village_id: Option<Uuid>,
+        attacker_scouts: i32,
+        defender_scouts: i32,
+        attacker_scouts_lost: i32,
+        defender_scouts_lost: i32,
+        success: bool,
+        scouted_resources: Option<&CarriedResources>,
+        scouted_troops: Option<&ArmyTroops>,
+        occurred_at: DateTime<Utc>,
+    ) -> AppResult<ScoutReport> {
+        let report = sqlx::query_as::<_, ScoutReport>(
+            r#"
+            INSERT INTO scout_reports (
+                attacker_player_id, defender_player_id, attacker_village_id, defender_village_id,
+                attacker_scouts, defender_scouts, attacker_scouts_lost, defender_scouts_lost,
+                success, scouted_resources, scouted_troops, occurred_at
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            RETURNING id, attacker_player_id, defender_player_id, attacker_village_id, defender_village_id,
+                      attacker_scouts, defender_scouts, attacker_scouts_lost, defender_scouts_lost,
+                      success, scouted_resources, scouted_troops, occurred_at,
+                      read_by_attacker, read_by_defender, created_at
+            "#,
+        )
+        .bind(attacker_player_id)
+        .bind(defender_player_id)
+        .bind(attacker_village_id)
+        .bind(defender_village_id)
+        .bind(attacker_scouts)
+        .bind(defender_scouts)
+        .bind(attacker_scouts_lost)
+        .bind(defender_scouts_lost)
+        .bind(success)
+        .bind(scouted_resources.map(|r| sqlx::types::Json(r)))
+        .bind(scouted_troops.map(|t| sqlx::types::Json(t)))
+        .bind(occurred_at)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(report)
+    }
+
+    pub async fn find_scout_reports_by_player(pool: &PgPool, player_id: Uuid) -> AppResult<Vec<ScoutReport>> {
+        let reports = sqlx::query_as::<_, ScoutReport>(
+            r#"
+            SELECT id, attacker_player_id, defender_player_id, attacker_village_id, defender_village_id,
+                   attacker_scouts, defender_scouts, attacker_scouts_lost, defender_scouts_lost,
+                   success, scouted_resources, scouted_troops, occurred_at,
+                   read_by_attacker, read_by_defender, created_at
+            FROM scout_reports
+            WHERE attacker_player_id = $1 OR defender_player_id = $1
+            ORDER BY occurred_at DESC
+            LIMIT 100
+            "#,
+        )
+        .bind(player_id)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(reports)
+    }
+
+    pub async fn find_scout_report_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<ScoutReport>> {
+        let report = sqlx::query_as::<_, ScoutReport>(
+            r#"
+            SELECT id, attacker_player_id, defender_player_id, attacker_village_id, defender_village_id,
+                   attacker_scouts, defender_scouts, attacker_scouts_lost, defender_scouts_lost,
+                   success, scouted_resources, scouted_troops, occurred_at,
+                   read_by_attacker, read_by_defender, created_at
+            FROM scout_reports
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+
+        Ok(report)
+    }
+
+    pub async fn mark_scout_report_read(pool: &PgPool, id: Uuid, is_attacker: bool) -> AppResult<()> {
+        let query = if is_attacker {
+            "UPDATE scout_reports SET read_by_attacker = TRUE WHERE id = $1"
+        } else {
+            "UPDATE scout_reports SET read_by_defender = TRUE WHERE id = $1"
+        };
+
+        sqlx::query(query).bind(id).execute(pool).await?;
+
+        Ok(())
+    }
+
+    pub async fn count_unread_scout_reports(pool: &PgPool, player_id: Uuid) -> AppResult<i64> {
+        let count: (i64,) = sqlx::query_as(
+            r#"
+            SELECT COUNT(*)
+            FROM scout_reports
             WHERE (attacker_player_id = $1 AND read_by_attacker = FALSE)
                OR (defender_player_id = $1 AND read_by_defender = FALSE)
             "#,
