@@ -47,6 +47,12 @@ jsonwebtoken = "9"
 # HTTP client (for Firebase token verification)
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 
+# Payment (Stripe)
+stripe-rust = { package = "async-stripe", version = "0.41", default-features = false, features = ["runtime-tokio-hyper-rustls", "checkout"] }
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+
 # Utilities
 async-trait = "0.1"
 rust_decimal = { version = "1", features = ["serde"] }

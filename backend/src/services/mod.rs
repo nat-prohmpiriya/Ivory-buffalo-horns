@@ -4,6 +4,7 @@ pub mod background_jobs;
 pub mod building_service;
 pub mod message_service;
 pub mod resource_service;
+pub mod shop_service;
 pub mod troop_service;
 pub mod village_service;
 pub mod ws_service;

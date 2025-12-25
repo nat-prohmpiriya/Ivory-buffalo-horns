@@ -3,6 +3,7 @@ mod army;
 mod auth;
 mod building;
 mod message;
+mod shop;
 mod troop;
 mod village;
 pub mod ws;
@@ -26,6 +27,7 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .nest("/messages", message_routes(state.clone()))
         .nest("/conversations", conversation_routes(state.clone()))
         .nest("/alliance-messages", alliance_message_routes(state.clone()))
+        .nest("/shop", shop_routes(state.clone()))
         // Public routes (no auth required)
         .merge(public_routes())
 }
@@ -160,5 +162,25 @@ fn alliance_message_routes(state: AppState) -> Router<AppState> {
         .route("/", post(message::send_alliance_message))
         .route("/", get(message::get_alliance_messages))
         .route("/{id}", get(message::get_alliance_message))
+        .route_layer(middleware::from_fn_with_state(state, auth_middleware))
+}
+
+fn shop_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        // Public routes
+        .route("/packages", get(shop::get_packages))
+        .route("/subscriptions", get(shop::get_subscription_prices))
+        // Stripe webhook (no auth, verified by signature)
+        .route("/webhook", post(shop::stripe_webhook))
+        // Protected routes
+        .route("/balance", get(shop::get_balance))
+        .route("/checkout", post(shop::create_checkout))
+        .route("/subscriptions/buy", post(shop::buy_subscription))
+        .route("/transactions", get(shop::get_transactions))
+        // Gold features
+        .route("/features/finish-now", post(shop::use_finish_now))
+        .route("/features/npc-merchant", post(shop::use_npc_merchant))
+        .route("/features/production-bonus", post(shop::use_production_bonus))
+        .route("/features/book-of-wisdom", post(shop::use_book_of_wisdom))
         .route_layer(middleware::from_fn_with_state(state, auth_middleware))
 }

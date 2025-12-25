@@ -244,6 +244,39 @@ impl TroopRepository {
         Ok(())
     }
 
+    /// Find queue entry by ID
+    pub async fn find_queue_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<TroopQueue>> {
+        let queue = sqlx::query_as::<_, TroopQueue>(
+            r#"
+            SELECT id, village_id, troop_type, count, each_duration_seconds,
+                   started_at, ends_at, created_at
+            FROM troop_queue
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+
+        Ok(queue)
+    }
+
+    /// Complete training instantly (for Finish Now feature)
+    pub async fn complete_training(pool: &PgPool, queue_id: Uuid) -> AppResult<()> {
+        // Get queue entry
+        let queue = Self::find_queue_by_id(pool, queue_id)
+            .await?
+            .ok_or_else(|| crate::error::AppError::NotFound("Queue entry not found".into()))?;
+
+        // Add troops to village
+        Self::add_troops(pool, queue.village_id, queue.troop_type.clone(), queue.count).await?;
+
+        // Remove from queue
+        Self::remove_from_queue(pool, queue_id).await?;
+
+        Ok(())
+    }
+
     pub async fn find_completed_training(pool: &PgPool) -> AppResult<Vec<TroopQueue>> {
         let completed = sqlx::query_as::<_, TroopQueue>(
             r#"
