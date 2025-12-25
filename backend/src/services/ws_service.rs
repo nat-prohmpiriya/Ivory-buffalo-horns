@@ -16,6 +16,7 @@ pub enum WsEvent {
     ArmyArrived(ArmyArrivedData),
     AttackIncoming(AttackIncomingData),
     TroopTrainingComplete(TroopTrainingCompleteData),
+    TroopsStarved(TroopsStarvedData),
     Connected { user_id: Uuid },
 }
 
@@ -56,6 +57,13 @@ pub struct AttackIncomingData {
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct TroopTrainingCompleteData {
+    pub village_id: Uuid,
+    pub troop_type: String,
+    pub quantity: i32,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct TroopsStarvedData {
     pub village_id: Uuid,
     pub troop_type: String,
     pub quantity: i32,
