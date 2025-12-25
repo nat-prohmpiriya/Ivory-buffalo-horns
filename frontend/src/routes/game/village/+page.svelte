@@ -8,6 +8,7 @@
   import TrainingModal from '$lib/components/modals/TrainingModal.svelte';
   import { villageStore, getBuildingBySlot, type Building, type BuildingType } from '$lib/stores/village';
   import { goto } from '$app/navigation';
+  import ArmyMovementPanel from '$lib/components/game/ArmyMovementPanel.svelte';
 
   type ViewMode = 'village' | 'resources';
 
@@ -390,6 +391,9 @@
             </p>
           {/if}
         </Card>
+
+        <!-- Army Movements -->
+        <ArmyMovementPanel villageId={currentVillage.id} />
 
         <!-- Quick Actions -->
         <Card class="p-4">
