@@ -3,6 +3,7 @@ mod auth;
 mod building;
 mod troop;
 mod village;
+pub mod ws;
 
 use axum::{middleware, routing::{delete, get, post, put}, Router};
 

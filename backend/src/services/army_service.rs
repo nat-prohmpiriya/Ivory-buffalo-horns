@@ -13,6 +13,7 @@ use crate::models::village::Village;
 use crate::repositories::army_repo::ArmyRepository;
 use crate::repositories::troop_repo::TroopRepository;
 use crate::repositories::village_repo::VillageRepository;
+use crate::services::ws_service::{ArmyArrivedData, WsEvent, WsManager};
 
 /// Internal struct for battle calculation results
 struct BattleResult {
@@ -191,6 +192,85 @@ impl ArmyService {
 
             match result {
                 Ok(_) => processed += 1,
+                Err(e) => {
+                    error!("Failed to process army {}: {:?}", army.id, e);
+                }
+            }
+        }
+
+        Ok(processed)
+    }
+
+    /// Process all armies that have arrived at their destination (with WebSocket notifications)
+    pub async fn process_arrived_armies_with_ws(pool: &PgPool, ws_manager: &WsManager) -> AppResult<i32> {
+        let arrived = ArmyRepository::find_arrived(pool).await?;
+        let mut processed = 0;
+
+        for army in arrived {
+            // Get home village owner for notifications
+            let home_village = VillageRepository::find_by_id(pool, army.from_village_id).await?;
+            let home_owner_id = home_village.as_ref().map(|v| v.user_id);
+
+            // Get target village owner for notifications
+            let target_village = if let Some(vid) = army.to_village_id {
+                VillageRepository::find_by_id(pool, vid).await?
+            } else {
+                VillageRepository::find_by_coordinates(pool, army.to_x, army.to_y).await?
+            };
+            let target_owner_id = target_village.as_ref().map(|v| v.user_id);
+
+            let result = if army.is_returning {
+                Self::handle_returning_army(pool, &army).await
+            } else {
+                match army.mission {
+                    MissionType::Raid | MissionType::Attack => {
+                        Self::handle_hostile_arrival(pool, &army).await
+                    }
+                    MissionType::Scout => {
+                        Self::handle_scout_arrival(pool, &army).await
+                    }
+                    MissionType::Support => {
+                        Self::handle_support_arrival(pool, &army).await
+                    }
+                    MissionType::Conquer => {
+                        Self::handle_conquer_arrival(pool, &army).await
+                    }
+                    _ => {
+                        error!("Unhandled mission type: {:?}", army.mission);
+                        continue;
+                    }
+                }
+            };
+
+            match result {
+                Ok(_) => {
+                    processed += 1;
+
+                    // Send WebSocket notifications
+                    let event = WsEvent::ArmyArrived(ArmyArrivedData {
+                        army_id: army.id,
+                        village_id: if army.is_returning {
+                            army.from_village_id
+                        } else {
+                            army.to_village_id.unwrap_or(army.from_village_id)
+                        },
+                        mission_type: format!("{:?}", army.mission),
+                    });
+
+                    // Notify army owner
+                    if let Some(owner_id) = home_owner_id {
+                        ws_manager.send_to_user(owner_id, &event).await;
+                    }
+
+                    // Notify target owner (if different and hostile mission)
+                    if !army.is_returning {
+                        if let Some(target_id) = target_owner_id {
+                            if home_owner_id != Some(target_id) {
+                                ws_manager.send_to_user(target_id, &event).await;
+                            }
+                        }
+                    }
+                }
                 Err(e) => {
                     error!("Failed to process army {}: {:?}", army.id, e);
                 }

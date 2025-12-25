@@ -13,6 +13,8 @@ use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
+use services::ws_service::WsManager;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Initialize tracing
@@ -37,19 +39,24 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Database connections established");
 
+    // Create WebSocket manager
+    let ws_manager = WsManager::new();
+
     // Create app state
     let state = AppState {
         db: db_pool.clone(),
         redis: redis_pool,
         config: config.clone(),
+        ws: ws_manager.clone(),
     };
 
-    // Start background jobs
-    services::background_jobs::start_background_jobs(db_pool).await;
+    // Start background jobs with WebSocket manager for broadcasting
+    services::background_jobs::start_background_jobs(db_pool, ws_manager).await;
 
     // Build router
     let app = Router::new()
         .route("/health", get(health_check))
+        .route("/ws", get(handlers::ws::ws_handler))
         .nest("/api", handlers::routes(state.clone()))
         .layer(TraceLayer::new_for_http())
         .layer(CorsLayer::permissive())
@@ -74,4 +81,5 @@ pub struct AppState {
     pub db: sqlx::PgPool,
     pub redis: redis::aio::ConnectionManager,
     pub config: config::Config,
+    pub ws: WsManager,
 }
