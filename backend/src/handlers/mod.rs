@@ -2,6 +2,7 @@ mod alliance;
 mod army;
 mod auth;
 mod building;
+mod message;
 mod troop;
 mod village;
 pub mod ws;
@@ -22,6 +23,9 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .nest("/armies", army_routes(state.clone()))
         .nest("/support-sent", support_routes(state.clone()))
         .nest("/alliances", alliance_routes(state.clone()))
+        .nest("/messages", message_routes(state.clone()))
+        .nest("/conversations", conversation_routes(state.clone()))
+        .nest("/alliance-messages", alliance_message_routes(state.clone()))
         // Public routes (no auth required)
         .merge(public_routes())
 }
@@ -128,5 +132,33 @@ fn alliance_routes(state: AppState) -> Router<AppState> {
         // Diplomacy
         .route("/{id}/diplomacy", get(alliance::list_diplomacy))
         .route("/{id}/diplomacy", post(alliance::set_diplomacy))
+        .route_layer(middleware::from_fn_with_state(state, auth_middleware))
+}
+
+fn message_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", post(message::send_message))
+        .route("/inbox", get(message::get_inbox))
+        .route("/sent", get(message::get_sent))
+        .route("/unread-count", get(message::get_unread_count))
+        .route("/{id}", get(message::get_message))
+        .route("/{id}", delete(message::delete_message))
+        .route_layer(middleware::from_fn_with_state(state, auth_middleware))
+}
+
+fn conversation_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(message::get_conversations))
+        .route("/{id}/messages", get(message::get_conversation_messages))
+        .route("/{id}/reply", post(message::reply_to_conversation))
+        .route("/{id}", delete(message::delete_conversation))
+        .route_layer(middleware::from_fn_with_state(state, auth_middleware))
+}
+
+fn alliance_message_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", post(message::send_alliance_message))
+        .route("/", get(message::get_alliance_messages))
+        .route("/{id}", get(message::get_alliance_message))
         .route_layer(middleware::from_fn_with_state(state, auth_middleware))
 }
