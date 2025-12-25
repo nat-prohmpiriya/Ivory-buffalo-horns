@@ -1,3 +1,4 @@
+mod alliance;
 mod army;
 mod auth;
 mod building;
@@ -20,6 +21,7 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .nest("/scout-reports", scout_report_routes(state.clone()))
         .nest("/armies", army_routes(state.clone()))
         .nest("/support-sent", support_routes(state.clone()))
+        .nest("/alliances", alliance_routes(state.clone()))
         // Public routes (no auth required)
         .merge(public_routes())
 }
@@ -102,5 +104,29 @@ fn army_routes(state: AppState) -> Router<AppState> {
 fn support_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(army::list_support_sent))
+        .route_layer(middleware::from_fn_with_state(state, auth_middleware))
+}
+
+fn alliance_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        // Alliance CRUD
+        .route("/", post(alliance::create_alliance))
+        .route("/", get(alliance::list_alliances))
+        .route("/my", get(alliance::get_my_alliance))
+        .route("/leave", post(alliance::leave_alliance))
+        .route("/{id}", get(alliance::get_alliance))
+        .route("/{id}", put(alliance::update_alliance))
+        .route("/{id}", delete(alliance::disband_alliance))
+        // Members
+        .route("/{id}/members", get(alliance::list_members))
+        .route("/{id}/invite", post(alliance::invite_player))
+        .route("/{id}/members/{user_id}", delete(alliance::kick_member))
+        .route("/{id}/members/{user_id}/role", put(alliance::update_member_role))
+        // Invitations
+        .route("/invitations", get(alliance::get_invitations))
+        .route("/invitations/{invitation_id}/respond", post(alliance::respond_invitation))
+        // Diplomacy
+        .route("/{id}/diplomacy", get(alliance::list_diplomacy))
+        .route("/{id}/diplomacy", post(alliance::set_diplomacy))
         .route_layer(middleware::from_fn_with_state(state, auth_middleware))
 }
