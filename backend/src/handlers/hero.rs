@@ -8,9 +8,9 @@ use crate::error::{AppError, AppResult};
 use crate::middleware::auth::AuthenticatedUser;
 use crate::models::hero::{
     AssignAttributesRequest, AvailableAdventureResponse, ChangeHomeVillageRequest,
-    CreateHeroRequest, EquipItemRequest, HeroAdventureResponse, HeroItemResponse, HeroListResponse,
-    HeroResponse, HeroSlotPurchaseResponse, InventoryResponse, ItemSlot, ReviveHeroRequest,
-    ReviveInfoResponse, StartAdventureRequest, UnequipItemRequest, UseItemRequest,
+    CreateHeroRequest, EquipItemRequest, HeroAdventureResponse, HeroDefinitionResponse,
+    HeroItemResponse, HeroListResponse, HeroResponse, HeroSlotPurchaseResponse, InventoryResponse,
+    ReviveHeroRequest, ReviveInfoResponse, StartAdventureRequest, UnequipItemRequest, UseItemRequest,
 };
 use crate::repositories::user_repo::UserRepository;
 use crate::services::hero_service::HeroService;
@@ -257,4 +257,32 @@ pub async fn revive_hero(
 
     let hero = HeroService::revive_hero(&state.db, db_user.id, hero_id, request.use_gold).await?;
     Ok(Json(hero))
+}
+
+// ==================== Hero Definitions (Named Heroes) ====================
+
+/// GET /api/heroes/definitions - Get all available hero definitions for user's tribe
+pub async fn get_available_heroes(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthenticatedUser>,
+) -> AppResult<Json<Vec<HeroDefinitionResponse>>> {
+    let db_user = UserRepository::find_by_firebase_uid(&state.db, &user.firebase_uid)
+        .await?
+        .ok_or(AppError::Unauthorized)?;
+
+    let definitions = HeroService::get_available_heroes(&state.db, db_user.id).await?;
+    Ok(Json(definitions))
+}
+
+/// GET /api/heroes/tavern - Get tavern heroes (available for recruitment with gold)
+pub async fn get_tavern_heroes(
+    State(state): State<AppState>,
+    Extension(user): Extension<AuthenticatedUser>,
+) -> AppResult<Json<Vec<HeroDefinitionResponse>>> {
+    let db_user = UserRepository::find_by_firebase_uid(&state.db, &user.firebase_uid)
+        .await?
+        .ok_or(AppError::Unauthorized)?;
+
+    let definitions = HeroService::get_tavern_heroes(&state.db, db_user.id).await?;
+    Ok(Json(definitions))
 }

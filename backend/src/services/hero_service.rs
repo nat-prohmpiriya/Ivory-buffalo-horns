@@ -6,9 +6,10 @@ use uuid::Uuid;
 use crate::error::{AppError, AppResult};
 use crate::models::hero::{
     AdventureDifficulty, AssignAttributesRequest, AvailableAdventureResponse, CreateHeroRequest,
-    EquippedItemsResponse, Hero, HeroAdventureResponse, HeroItemResponse, HeroListResponse,
-    HeroResponse, HeroSlotPurchaseResponse, HeroStatus, InventoryResponse, ItemDefinitionResponse,
-    ItemRarity, ItemSlot, ReviveInfoResponse, ReviveResourceCost,
+    EquippedItemsResponse, Hero, HeroAdventureResponse, HeroDefinition, HeroDefinitionResponse,
+    HeroItemResponse, HeroListResponse, HeroResponse, HeroSlotPurchaseResponse, HeroStatus,
+    InventoryResponse, ItemDefinitionResponse, ItemRarity, ItemSlot, ReviveInfoResponse,
+    ReviveResourceCost,
 };
 use crate::repositories::hero_repo::HeroRepository;
 use crate::repositories::shop_repo::ShopRepository;
@@ -35,8 +36,15 @@ impl HeroService {
             None
         };
 
+        // Convert heroes with their definitions
+        let mut hero_responses = Vec::new();
+        for hero in heroes {
+            let definition = Self::get_hero_definition(pool, &hero).await?;
+            hero_responses.push(HeroResponse::from_hero(hero, definition));
+        }
+
         Ok(HeroListResponse {
-            heroes: heroes.into_iter().map(|h| h.into()).collect(),
+            heroes: hero_responses,
             total_slots,
             used_slots,
             next_slot_cost,
@@ -53,7 +61,20 @@ impl HeroService {
             return Err(AppError::Forbidden("Access denied".into()));
         }
 
-        Ok(hero.into())
+        let definition = Self::get_hero_definition(pool, &hero).await?;
+        Ok(HeroResponse::from_hero(hero, definition))
+    }
+
+    /// Helper to get hero definition if the hero has one
+    async fn get_hero_definition(
+        pool: &PgPool,
+        hero: &Hero,
+    ) -> AppResult<Option<HeroDefinition>> {
+        if let Some(def_id) = hero.hero_definition_id {
+            Ok(HeroRepository::get_definition_by_id(pool, def_id).await?)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Create a new hero
@@ -79,6 +100,28 @@ impl HeroService {
             return Err(AppError::Forbidden("Village does not belong to you".into()));
         }
 
+        // Get hero definition if specified
+        let hero_definition = if let Some(def_id) = request.hero_definition_id {
+            let def = HeroRepository::get_definition_by_id(pool, def_id)
+                .await?
+                .ok_or_else(|| AppError::NotFound("Hero definition not found".into()))?;
+            Some(def)
+        } else {
+            None
+        };
+
+        // Determine name and tribe
+        let (hero_name, hero_tribe) = match &hero_definition {
+            Some(def) => (
+                request.name.unwrap_or_else(|| def.name.clone()),
+                def.tribe,
+            ),
+            None => (
+                request.name.unwrap_or_else(|| "Hero".to_string()),
+                crate::models::troop::TribeType::Phasuttha, // Default tribe
+            ),
+        };
+
         // Find next available slot
         let slot_number = used_slots + 1;
 
@@ -87,16 +130,17 @@ impl HeroService {
             pool,
             user_id,
             slot_number,
-            &request.name,
-            request.tribe,
+            &hero_name,
+            hero_tribe,
             request.home_village_id,
+            request.hero_definition_id,
         )
         .await?;
 
         // Generate initial adventures
         Self::generate_adventures(pool, user_id).await?;
 
-        Ok(hero.into())
+        Ok(HeroResponse::from_hero(hero, hero_definition))
     }
 
     /// Change hero's home village
@@ -939,5 +983,36 @@ impl HeroService {
         .await?;
 
         Ok(result.rows_affected() as i32)
+    }
+
+    // ==================== Hero Definitions ====================
+
+    /// Get all available hero definitions
+    pub async fn get_available_heroes(
+        pool: &PgPool,
+        _user_id: Uuid,
+    ) -> AppResult<Vec<HeroDefinitionResponse>> {
+        let definitions = HeroRepository::get_all_definitions(pool).await?;
+        Ok(definitions.into_iter().map(|d| d.into()).collect())
+    }
+
+    /// Get tavern heroes (available for purchase with gold) - returns all tavern heroes
+    pub async fn get_tavern_heroes(
+        pool: &PgPool,
+        _user_id: Uuid,
+    ) -> AppResult<Vec<HeroDefinitionResponse>> {
+        // Return all tavern heroes from all tribes (users can recruit from their own tribe in frontend)
+        let mut all_tavern_heroes = Vec::new();
+
+        for tribe in [
+            crate::models::troop::TribeType::Phasuttha,
+            crate::models::troop::TribeType::Nava,
+            crate::models::troop::TribeType::Kiri,
+        ] {
+            let heroes = HeroRepository::get_tavern_heroes(pool, tribe).await?;
+            all_tavern_heroes.extend(heroes);
+        }
+
+        Ok(all_tavern_heroes.into_iter().map(|d| d.into()).collect())
     }
 }

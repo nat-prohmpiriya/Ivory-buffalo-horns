@@ -197,6 +197,9 @@ fn hero_routes(state: AppState) -> Router<AppState> {
         .route("/{id}/attributes", put(hero::assign_attributes))
         // Hero Slots
         .route("/slots/buy", post(hero::buy_hero_slot))
+        // Hero Definitions (Named Heroes)
+        .route("/definitions", get(hero::get_available_heroes))
+        .route("/tavern", get(hero::get_tavern_heroes))
         // Inventory
         .route("/{id}/inventory", get(hero::get_inventory))
         .route("/{id}/equip", post(hero::equip_item))

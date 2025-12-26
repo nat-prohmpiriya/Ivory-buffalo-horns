@@ -54,13 +54,80 @@ pub enum AdventureDifficulty {
     Long,
 }
 
+// ==================== Passive Bonus Types ====================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PassiveBonus {
+    pub bonus_type: String,
+    pub value: i32,
+    pub description: String,
+}
+
 // ==================== Database Models ====================
+
+/// Named hero definition (historical heroes with passive bonuses)
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct HeroDefinition {
+    pub id: Uuid,
+
+    // Basic info
+    pub name: String,
+    pub name_en: String,
+    pub tribe: TribeType,
+    pub rarity: i32, // 1-5 stars
+
+    // Description
+    pub description: Option<String>,
+    pub description_en: Option<String>,
+
+    // Base stats
+    pub base_attack: i32,
+    pub base_defense: i32,
+    pub base_speed: i32,
+
+    // Passive bonuses (JSON)
+    pub passive_bonuses: serde_json::Value,
+
+    // Recruitment
+    pub tavern_cost_gold: Option<i32>,
+    pub quest_obtainable: bool,
+    pub season_reward: bool,
+
+    // Image
+    pub portrait_url: Option<String>,
+
+    pub created_at: DateTime<Utc>,
+}
+
+impl HeroDefinition {
+    /// Parse passive bonuses from JSON
+    pub fn get_passive_bonuses(&self) -> Vec<PassiveBonus> {
+        serde_json::from_value(self.passive_bonuses.clone()).unwrap_or_default()
+    }
+
+    /// Get specific bonus value by type
+    pub fn get_bonus(&self, bonus_type: &str) -> i32 {
+        self.get_passive_bonuses()
+            .iter()
+            .find(|b| b.bonus_type == bonus_type)
+            .map(|b| b.value)
+            .unwrap_or(0)
+    }
+
+    /// Get rarity as stars string
+    pub fn rarity_stars(&self) -> String {
+        "⭐".repeat(self.rarity as usize)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct Hero {
     pub id: Uuid,
     pub user_id: Uuid,
     pub slot_number: i32,
+
+    // Named hero reference (optional - NULL for custom heroes)
+    pub hero_definition_id: Option<Uuid>,
 
     // Basic info
     pub name: String,
@@ -331,8 +398,8 @@ pub struct HeroSlotPrice {
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreateHeroRequest {
-    pub name: String,
-    pub tribe: TribeType,
+    pub name: Option<String>,  // Optional - will use hero definition name if not provided
+    pub hero_definition_id: Option<Uuid>,  // Select a named hero (optional)
     pub home_village_id: Uuid,
 }
 
@@ -376,12 +443,47 @@ pub struct ReviveHeroRequest {
 
 // ==================== Response DTOs ====================
 
+/// Hero definition response (named hero info)
+#[derive(Debug, Clone, Serialize)]
+pub struct HeroDefinitionResponse {
+    pub id: Uuid,
+    pub name: String,
+    pub name_en: String,
+    pub tribe: TribeType,
+    pub rarity: i32,
+    pub rarity_stars: String,
+    pub description: Option<String>,
+    pub description_en: Option<String>,
+    pub passive_bonuses: Vec<PassiveBonus>,
+    pub portrait_url: Option<String>,
+}
+
+impl From<HeroDefinition> for HeroDefinitionResponse {
+    fn from(d: HeroDefinition) -> Self {
+        Self {
+            id: d.id,
+            name: d.name.clone(),
+            name_en: d.name_en.clone(),
+            tribe: d.tribe,
+            rarity: d.rarity,
+            rarity_stars: d.rarity_stars(),
+            description: d.description.clone(),
+            description_en: d.description_en.clone(),
+            passive_bonuses: d.get_passive_bonuses(),
+            portrait_url: d.portrait_url.clone(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct HeroResponse {
     pub id: Uuid,
     pub slot_number: i32,
     pub name: String,
     pub tribe: TribeType,
+
+    // Named hero info (if using a named hero)
+    pub hero_definition: Option<HeroDefinitionResponse>,
 
     // Location
     pub home_village_id: Uuid,
@@ -415,18 +517,31 @@ pub struct HeroResponse {
     pub def_bonus_percent: f64,
     pub base_speed: Decimal,
 
+    // Active passive bonuses (from hero definition)
+    pub active_bonuses: Vec<PassiveBonus>,
+
     // Timestamps
     pub died_at: Option<DateTime<Utc>>,
     pub revive_at: Option<DateTime<Utc>>,
 }
 
-impl From<Hero> for HeroResponse {
-    fn from(h: Hero) -> Self {
+impl HeroResponse {
+    /// Create HeroResponse from Hero with optional HeroDefinition
+    pub fn from_hero(h: Hero, definition: Option<HeroDefinition>) -> Self {
+        let (hero_def_response, active_bonuses) = match definition {
+            Some(def) => {
+                let bonuses = def.get_passive_bonuses();
+                (Some(def.into()), bonuses)
+            }
+            None => (None, Vec::new()),
+        };
+
         Self {
             id: h.id,
             slot_number: h.slot_number,
             name: h.name.clone(),
             tribe: h.tribe,
+            hero_definition: hero_def_response,
             home_village_id: h.home_village_id,
             current_village_id: h.current_village_id,
             status: h.status,
@@ -445,9 +560,16 @@ impl From<Hero> for HeroResponse {
             off_bonus_percent: h.off_bonus_percent(),
             def_bonus_percent: h.def_bonus_percent(),
             base_speed: h.base_speed,
+            active_bonuses,
             died_at: h.died_at,
             revive_at: h.revive_at,
         }
+    }
+}
+
+impl From<Hero> for HeroResponse {
+    fn from(h: Hero) -> Self {
+        HeroResponse::from_hero(h, None)
     }
 }
 

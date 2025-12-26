@@ -4,8 +4,8 @@ use uuid::Uuid;
 
 use crate::error::AppResult;
 use crate::models::hero::{
-    AvailableAdventure, Hero, HeroAdventure, HeroItem, HeroItemWithDefinition, HeroSlotPrice,
-    HeroStatus, ItemDefinition, ItemRarity, ItemSlot, AdventureDifficulty,
+    AvailableAdventure, Hero, HeroAdventure, HeroDefinition, HeroItem, HeroItemWithDefinition,
+    HeroSlotPrice, HeroStatus, ItemDefinition, ItemRarity, ItemSlot, AdventureDifficulty,
 };
 use crate::models::troop::TribeType;
 
@@ -18,7 +18,7 @@ impl HeroRepository {
     pub async fn get_user_heroes(pool: &PgPool, user_id: Uuid) -> AppResult<Vec<Hero>> {
         let heroes = sqlx::query_as::<_, Hero>(
             r#"
-            SELECT id, user_id, slot_number, name, tribe, home_village_id, current_village_id,
+            SELECT id, user_id, slot_number, hero_definition_id, name, tribe, home_village_id, current_village_id,
                    status, level, experience, experience_to_next, health, health_regen_rate,
                    unassigned_points, fighting_strength, off_bonus, def_bonus, resources_bonus,
                    base_attack, base_defense, base_speed, last_health_update, died_at, revive_at,
@@ -39,7 +39,7 @@ impl HeroRepository {
     pub async fn find_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<Hero>> {
         let hero = sqlx::query_as::<_, Hero>(
             r#"
-            SELECT id, user_id, slot_number, name, tribe, home_village_id, current_village_id,
+            SELECT id, user_id, slot_number, hero_definition_id, name, tribe, home_village_id, current_village_id,
                    status, level, experience, experience_to_next, health, health_regen_rate,
                    unassigned_points, fighting_strength, off_bonus, def_bonus, resources_bonus,
                    base_attack, base_defense, base_speed, last_health_update, died_at, revive_at,
@@ -59,7 +59,7 @@ impl HeroRepository {
     pub async fn find_by_slot(pool: &PgPool, user_id: Uuid, slot: i32) -> AppResult<Option<Hero>> {
         let hero = sqlx::query_as::<_, Hero>(
             r#"
-            SELECT id, user_id, slot_number, name, tribe, home_village_id, current_village_id,
+            SELECT id, user_id, slot_number, hero_definition_id, name, tribe, home_village_id, current_village_id,
                    status, level, experience, experience_to_next, health, health_regen_rate,
                    unassigned_points, fighting_strength, off_bonus, def_bonus, resources_bonus,
                    base_attack, base_defense, base_speed, last_health_update, died_at, revive_at,
@@ -108,6 +108,7 @@ impl HeroRepository {
         name: &str,
         tribe: TribeType,
         home_village_id: Uuid,
+        hero_definition_id: Option<Uuid>,
     ) -> AppResult<Hero> {
         // Base stats based on tribe
         let (base_attack, base_defense, base_speed) = match tribe {
@@ -120,11 +121,11 @@ impl HeroRepository {
         let hero = sqlx::query_as::<_, Hero>(
             r#"
             INSERT INTO heroes (
-                user_id, slot_number, name, tribe, home_village_id, current_village_id,
+                user_id, slot_number, hero_definition_id, name, tribe, home_village_id, current_village_id,
                 base_attack, base_defense, base_speed
             )
-            VALUES ($1, $2, $3, $4, $5, $5, $6, $7, $8)
-            RETURNING id, user_id, slot_number, name, tribe, home_village_id, current_village_id,
+            VALUES ($1, $2, $3, $4, $5, $6, $6, $7, $8, $9)
+            RETURNING id, user_id, slot_number, hero_definition_id, name, tribe, home_village_id, current_village_id,
                       status, level, experience, experience_to_next, health, health_regen_rate,
                       unassigned_points, fighting_strength, off_bonus, def_bonus, resources_bonus,
                       base_attack, base_defense, base_speed, last_health_update, died_at, revive_at,
@@ -133,6 +134,7 @@ impl HeroRepository {
         )
         .bind(user_id)
         .bind(slot_number)
+        .bind(hero_definition_id)
         .bind(name)
         .bind(&tribe)
         .bind(home_village_id)
@@ -156,7 +158,7 @@ impl HeroRepository {
             UPDATE heroes
             SET home_village_id = $2, updated_at = NOW()
             WHERE id = $1
-            RETURNING id, user_id, slot_number, name, tribe, home_village_id, current_village_id,
+            RETURNING id, user_id, slot_number, hero_definition_id, name, tribe, home_village_id, current_village_id,
                       status, level, experience, experience_to_next, health, health_regen_rate,
                       unassigned_points, fighting_strength, off_bonus, def_bonus, resources_bonus,
                       base_attack, base_defense, base_speed, last_health_update, died_at, revive_at,
@@ -182,7 +184,7 @@ impl HeroRepository {
             UPDATE heroes
             SET status = $2, updated_at = NOW()
             WHERE id = $1
-            RETURNING id, user_id, slot_number, name, tribe, home_village_id, current_village_id,
+            RETURNING id, user_id, slot_number, hero_definition_id, name, tribe, home_village_id, current_village_id,
                       status, level, experience, experience_to_next, health, health_regen_rate,
                       unassigned_points, fighting_strength, off_bonus, def_bonus, resources_bonus,
                       base_attack, base_defense, base_speed, last_health_update, died_at, revive_at,
@@ -217,7 +219,7 @@ impl HeroRepository {
                 unassigned_points = unassigned_points - $6,
                 updated_at = NOW()
             WHERE id = $1
-            RETURNING id, user_id, slot_number, name, tribe, home_village_id, current_village_id,
+            RETURNING id, user_id, slot_number, hero_definition_id, name, tribe, home_village_id, current_village_id,
                       status, level, experience, experience_to_next, health, health_regen_rate,
                       unassigned_points, fighting_strength, off_bonus, def_bonus, resources_bonus,
                       base_attack, base_defense, base_speed, last_health_update, died_at, revive_at,
@@ -265,7 +267,7 @@ impl HeroRepository {
                 experience_to_next = $5,
                 updated_at = NOW()
             WHERE id = $1
-            RETURNING id, user_id, slot_number, name, tribe, home_village_id, current_village_id,
+            RETURNING id, user_id, slot_number, hero_definition_id, name, tribe, home_village_id, current_village_id,
                       status, level, experience, experience_to_next, health, health_regen_rate,
                       unassigned_points, fighting_strength, off_bonus, def_bonus, resources_bonus,
                       base_attack, base_defense, base_speed, last_health_update, died_at, revive_at,
@@ -301,7 +303,7 @@ impl HeroRepository {
                 last_health_update = NOW(),
                 updated_at = NOW()
             WHERE id = $1
-            RETURNING id, user_id, slot_number, name, tribe, home_village_id, current_village_id,
+            RETURNING id, user_id, slot_number, hero_definition_id, name, tribe, home_village_id, current_village_id,
                       status, level, experience, experience_to_next, health, health_regen_rate,
                       unassigned_points, fighting_strength, off_bonus, def_bonus, resources_bonus,
                       base_attack, base_defense, base_speed, last_health_update, died_at, revive_at,
@@ -341,7 +343,7 @@ impl HeroRepository {
                 revive_at = $2,
                 updated_at = NOW()
             WHERE id = $1
-            RETURNING id, user_id, slot_number, name, tribe, home_village_id, current_village_id,
+            RETURNING id, user_id, slot_number, hero_definition_id, name, tribe, home_village_id, current_village_id,
                       status, level, experience, experience_to_next, health, health_regen_rate,
                       unassigned_points, fighting_strength, off_bonus, def_bonus, resources_bonus,
                       base_attack, base_defense, base_speed, last_health_update, died_at, revive_at,
@@ -368,7 +370,7 @@ impl HeroRepository {
                 last_health_update = NOW(),
                 updated_at = NOW()
             WHERE id = $1
-            RETURNING id, user_id, slot_number, name, tribe, home_village_id, current_village_id,
+            RETURNING id, user_id, slot_number, hero_definition_id, name, tribe, home_village_id, current_village_id,
                       status, level, experience, experience_to_next, health, health_regen_rate,
                       unassigned_points, fighting_strength, off_bonus, def_bonus, resources_bonus,
                       base_attack, base_defense, base_speed, last_health_update, died_at, revive_at,
@@ -894,5 +896,89 @@ impl HeroRepository {
         .await?;
 
         Ok(adventures)
+    }
+
+    // ==================== Hero Definitions (Named Heroes) ====================
+
+    /// Get all hero definitions for a tribe
+    pub async fn get_definitions_by_tribe(
+        pool: &PgPool,
+        tribe: TribeType,
+    ) -> AppResult<Vec<HeroDefinition>> {
+        let definitions = sqlx::query_as::<_, HeroDefinition>(
+            r#"
+            SELECT id, name, name_en, tribe, rarity, description, description_en,
+                   base_attack, base_defense, base_speed, passive_bonuses,
+                   tavern_cost_gold, quest_obtainable, season_reward, portrait_url, created_at
+            FROM hero_definitions
+            WHERE tribe = $1
+            ORDER BY rarity DESC, name
+            "#,
+        )
+        .bind(&tribe)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(definitions)
+    }
+
+    /// Get all available hero definitions
+    pub async fn get_all_definitions(pool: &PgPool) -> AppResult<Vec<HeroDefinition>> {
+        let definitions = sqlx::query_as::<_, HeroDefinition>(
+            r#"
+            SELECT id, name, name_en, tribe, rarity, description, description_en,
+                   base_attack, base_defense, base_speed, passive_bonuses,
+                   tavern_cost_gold, quest_obtainable, season_reward, portrait_url, created_at
+            FROM hero_definitions
+            ORDER BY tribe, rarity DESC, name
+            "#,
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(definitions)
+    }
+
+    /// Get hero definition by ID
+    pub async fn get_definition_by_id(
+        pool: &PgPool,
+        id: Uuid,
+    ) -> AppResult<Option<HeroDefinition>> {
+        let definition = sqlx::query_as::<_, HeroDefinition>(
+            r#"
+            SELECT id, name, name_en, tribe, rarity, description, description_en,
+                   base_attack, base_defense, base_speed, passive_bonuses,
+                   tavern_cost_gold, quest_obtainable, season_reward, portrait_url, created_at
+            FROM hero_definitions
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(pool)
+        .await?;
+
+        Ok(definition)
+    }
+
+    /// Get tavern heroes (available for recruitment)
+    pub async fn get_tavern_heroes(
+        pool: &PgPool,
+        tribe: TribeType,
+    ) -> AppResult<Vec<HeroDefinition>> {
+        let definitions = sqlx::query_as::<_, HeroDefinition>(
+            r#"
+            SELECT id, name, name_en, tribe, rarity, description, description_en,
+                   base_attack, base_defense, base_speed, passive_bonuses,
+                   tavern_cost_gold, quest_obtainable, season_reward, portrait_url, created_at
+            FROM hero_definitions
+            WHERE tribe = $1 AND tavern_cost_gold IS NOT NULL
+            ORDER BY rarity DESC, name
+            "#,
+        )
+        .bind(&tribe)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(definitions)
     }
 }
