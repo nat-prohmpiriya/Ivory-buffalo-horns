@@ -73,6 +73,7 @@ pub struct Army {
     pub is_returning: bool,
     pub is_stationed: bool,
     pub battle_report_id: Option<Uuid>,
+    pub hero_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -128,6 +129,8 @@ pub struct SendArmyRequest {
     pub troops: HashMap<TroopType, i32>,
     #[serde(default)]
     pub resources: CarriedResources,
+    /// Optional hero to send with the army
+    pub hero_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -146,6 +149,7 @@ pub struct ArmyResponse {
     pub returns_at: Option<DateTime<Utc>>,
     pub is_returning: bool,
     pub is_stationed: bool,
+    pub hero_id: Option<Uuid>,
 }
 
 impl From<Army> for ArmyResponse {
@@ -165,6 +169,7 @@ impl From<Army> for ArmyResponse {
             returns_at: a.returns_at,
             is_returning: a.is_returning,
             is_stationed: a.is_stationed,
+            hero_id: a.hero_id,
         }
     }
 }

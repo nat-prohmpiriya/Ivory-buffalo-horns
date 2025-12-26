@@ -8,9 +8,11 @@ use crate::models::army::{
     Army, ArmyResponse, ArmyTroops, BattleReport, CarriedResources, MissionType, ScoutReport,
     SendArmyRequest,
 };
+use crate::models::hero::{HeroDefinition, HeroStatus};
 use crate::models::troop::TroopDefinition;
 use crate::models::village::Village;
 use crate::repositories::army_repo::ArmyRepository;
+use crate::repositories::hero_repo::HeroRepository;
 use crate::repositories::troop_repo::TroopRepository;
 use crate::repositories::village_repo::VillageRepository;
 use crate::services::ws_service::{ArmyArrivedData, WsEvent, WsManager};
@@ -22,6 +24,97 @@ struct BattleResult {
     defender_survivors: ArmyTroops,
     attacker_losses: ArmyTroops,
     defender_losses: ArmyTroops,
+}
+
+/// Combat bonuses from hero passive abilities
+#[derive(Debug, Default)]
+struct CombatBonuses {
+    // Attack bonuses (percentage, e.g., 30 = +30%)
+    pub elephant_attack: i32,
+    pub infantry_attack: i32,
+    pub ranged_attack: i32,
+    pub cavalry_attack: i32,  // Covers naval, highland pony, etc.
+
+    // Defense bonuses
+    pub defense_bonus: i32,       // General defense
+    pub infantry_defense: i32,    // Defense vs infantry
+
+    // Combat modifiers
+    pub critical_hit: i32,    // % chance for +50% damage
+    pub first_strike: i32,    // % bonus on attack
+    pub last_stand: i32,      // % bonus when outnumbered
+
+    // Speed bonuses (for travel time)
+    pub army_speed: i32,
+}
+
+impl CombatBonuses {
+    /// Build combat bonuses from a hero definition
+    pub fn from_hero_definition(definition: Option<&HeroDefinition>) -> Self {
+        let mut bonuses = Self::default();
+
+        if let Some(def) = definition {
+            for bonus in def.get_passive_bonuses() {
+                match bonus.bonus_type.as_str() {
+                    "elephant_attack" | "elephant_damage" => bonuses.elephant_attack += bonus.value,
+                    "infantry_attack" => bonuses.infantry_attack += bonus.value,
+                    "ranged_attack" => bonuses.ranged_attack += bonus.value,
+                    "naval_attack" | "cavalry_attack" => bonuses.cavalry_attack += bonus.value,
+                    "defense_bonus" | "wall_defense" => bonuses.defense_bonus += bonus.value,
+                    "infantry_defense" => bonuses.infantry_defense += bonus.value,
+                    "critical_hit" => bonuses.critical_hit += bonus.value,
+                    "first_strike" | "first_attack" => bonuses.first_strike += bonus.value,
+                    "last_stand" => bonuses.last_stand += bonus.value,
+                    "army_speed" | "raid_speed" => bonuses.army_speed += bonus.value,
+                    _ => {} // Ignore non-combat bonuses
+                }
+            }
+        }
+
+        bonuses
+    }
+
+    /// Calculate attack multiplier for a specific troop type
+    pub fn attack_multiplier(&self, troop_type: &crate::models::troop::TroopType) -> f64 {
+        use crate::models::troop::TroopType;
+
+        let bonus_percent = match troop_type {
+            // Elephant units
+            TroopType::WarElephant | TroopType::SwampDragon => self.elephant_attack,
+
+            // Infantry units
+            TroopType::Infantry | TroopType::Spearman | TroopType::KrisWarrior
+            | TroopType::MountainWarrior | TroopType::TrapMaker => self.infantry_attack,
+
+            // Ranged units
+            TroopType::Crossbowman | TroopType::PortugueseMusketeer => self.ranged_attack,
+
+            // Cavalry/Naval units
+            TroopType::WarPrahu | TroopType::HighlandPony | TroopType::SeaDiver => self.cavalry_attack,
+
+            // Utility/Special (no specific bonus)
+            TroopType::BuffaloWagon | TroopType::MerchantShip | TroopType::LocustSwarm
+            | TroopType::BattleDuck | TroopType::RoyalAdvisor | TroopType::HarborMaster
+            | TroopType::ElderChief => 0,
+        };
+
+        // Add first_strike bonus for all units
+        let total_bonus = bonus_percent + self.first_strike;
+
+        1.0 + (total_bonus as f64 / 100.0)
+    }
+
+    /// Calculate defense multiplier
+    pub fn defense_multiplier(&self, _infantry_ratio: f64) -> f64 {
+        // Combine general defense with infantry-specific defense
+        let total_bonus = self.defense_bonus + (self.infantry_defense as f64 * _infantry_ratio) as i32;
+        1.0 + (total_bonus as f64 / 100.0)
+    }
+
+    /// Calculate speed multiplier for travel time
+    pub fn speed_multiplier(&self) -> f64 {
+        1.0 + (self.army_speed as f64 / 100.0)
+    }
 }
 
 pub struct ArmyService;
@@ -106,6 +199,31 @@ impl ArmyService {
             return Err(AppError::BadRequest("Support mission requires a target village".into()));
         }
 
+        // Validate hero if provided
+        if let Some(hero_id) = request.hero_id {
+            let hero = HeroRepository::find_by_id(pool, hero_id)
+                .await?
+                .ok_or_else(|| AppError::NotFound("Hero not found".into()))?;
+
+            // Hero must belong to the player
+            if hero.user_id != player_id {
+                return Err(AppError::Forbidden("This hero doesn't belong to you".into()));
+            }
+
+            // Hero must be at home village (same as army source)
+            if hero.home_village_id != from_village_id {
+                return Err(AppError::BadRequest("Hero must be at the same village as the army".into()));
+            }
+
+            // Hero must be idle
+            if hero.status != HeroStatus::Idle {
+                return Err(AppError::BadRequest("Hero is not available (already on mission or dead)".into()));
+            }
+
+            // Mark hero as moving with army
+            HeroRepository::update_status(pool, hero_id, HeroStatus::Moving).await?;
+        }
+
         // Get troop definitions for travel time calculation
         let definitions = TroopRepository::get_all_definitions(pool).await?;
 
@@ -149,6 +267,7 @@ impl ArmyService {
             now,
             arrives_at,
             returns_at,
+            request.hero_id,
         )
         .await?;
 
@@ -324,12 +443,35 @@ impl ArmyService {
             }
         }
 
-        // Calculate battle with combined defense
+        // Get attacker's hero bonuses
+        let attacker_bonuses = if let Some(hero_id) = army.hero_id {
+            if let Some(hero) = HeroRepository::find_by_id(pool, hero_id).await? {
+                if let Some(def_id) = hero.hero_definition_id {
+                    let definition = HeroRepository::get_definition_by_id(pool, def_id).await?;
+                    CombatBonuses::from_hero_definition(definition.as_ref())
+                } else {
+                    CombatBonuses::default()
+                }
+            } else {
+                CombatBonuses::default()
+            }
+        } else {
+            CombatBonuses::default()
+        };
+
+        // Get defender's hero bonuses (from stationed heroes)
+        // For now, use default (no defender hero bonuses from stationed armies)
+        // TODO: In the future, consider heroes stationed at villages for defense
+        let defender_bonuses = CombatBonuses::default();
+
+        // Calculate battle with combined defense and hero bonuses
         let battle = Self::calculate_battle(
             &army.troops.0,
             &total_defender_troops,
             &definitions,
             army.mission,
+            &attacker_bonuses,
+            &defender_bonuses,
         );
 
         // Apply losses to village's own troops
@@ -712,12 +854,32 @@ impl ArmyService {
             }
         }
 
-        // Calculate battle (similar to Attack mission)
+        // Get attacker's hero bonuses
+        let attacker_bonuses = if let Some(hero_id) = army.hero_id {
+            if let Some(hero) = HeroRepository::find_by_id(pool, hero_id).await? {
+                if let Some(def_id) = hero.hero_definition_id {
+                    let definition = HeroRepository::get_definition_by_id(pool, def_id).await?;
+                    CombatBonuses::from_hero_definition(definition.as_ref())
+                } else {
+                    CombatBonuses::default()
+                }
+            } else {
+                CombatBonuses::default()
+            }
+        } else {
+            CombatBonuses::default()
+        };
+
+        let defender_bonuses = CombatBonuses::default();
+
+        // Calculate battle (similar to Attack mission) with hero bonuses
         let battle = Self::calculate_battle(
             &army.troops.0,
             &total_defender_troops,
             &definitions,
             MissionType::Attack, // Use Attack calculation for combat
+            &attacker_bonuses,
+            &defender_bonuses,
         );
 
         // Apply defender losses (same as handle_hostile_arrival)
@@ -907,6 +1069,12 @@ impl ArmyService {
             .await?;
         }
 
+        // Return hero to idle status if present
+        if let Some(hero_id) = army.hero_id {
+            HeroRepository::update_status(pool, hero_id, HeroStatus::Idle).await?;
+            info!("Hero {} returned from mission", hero_id);
+        }
+
         info!(
             "Army {} returned to village {} with {} resources",
             army.id,
@@ -988,15 +1156,21 @@ impl ArmyService {
         Duration::seconds(seconds.max(60))
     }
 
-    /// Calculate battle using Travian-style formula
+    /// Calculate battle using Travian-style formula with hero bonuses
     fn calculate_battle(
         attacker_troops: &ArmyTroops,
         defender_troops: &ArmyTroops,
         definitions: &[TroopDefinition],
         mission: MissionType,
+        attacker_bonuses: &CombatBonuses,
+        defender_bonuses: &CombatBonuses,
     ) -> BattleResult {
-        // Calculate attack power
-        let attack_power = Self::calculate_attack_power(attacker_troops, definitions);
+        // Calculate attack power with hero bonuses
+        let attack_power = Self::calculate_attack_power_with_bonuses(
+            attacker_troops,
+            definitions,
+            attacker_bonuses,
+        );
 
         // Calculate infantry/cavalry ratio for defense calculation
         let (infantry_attack, cavalry_attack) =
@@ -1008,9 +1182,23 @@ impl ArmyService {
             0.5
         };
 
-        // Calculate defense power
-        let defense_power =
-            Self::calculate_defense_power(defender_troops, definitions, infantry_ratio);
+        // Calculate defense power with hero bonuses
+        let defense_power = Self::calculate_defense_power_with_bonuses(
+            defender_troops,
+            definitions,
+            infantry_ratio,
+            defender_bonuses,
+        );
+
+        // Apply last_stand bonus if attacker is outnumbered
+        let total_attacker_count: i32 = attacker_troops.values().sum();
+        let total_defender_count: i32 = defender_troops.values().sum();
+        let attack_power = if total_attacker_count < total_defender_count && attacker_bonuses.last_stand > 0 {
+            let last_stand_multiplier = 1.0 + (attacker_bonuses.last_stand as f64 / 100.0);
+            attack_power * last_stand_multiplier
+        } else {
+            attack_power
+        };
 
         // Determine winner and calculate losses
         let (attacker_wins, attacker_loss_ratio, defender_loss_ratio) =
@@ -1102,6 +1290,49 @@ impl ArmyService {
                     let effective_defense = (d.defense_infantry as f64 * infantry_ratio)
                         + (d.defense_cavalry as f64 * cavalry_ratio);
                     effective_defense * *count as f64
+                })
+            })
+            .sum()
+    }
+
+    /// Calculate total attack power with hero bonuses applied
+    fn calculate_attack_power_with_bonuses(
+        troops: &ArmyTroops,
+        definitions: &[TroopDefinition],
+        bonuses: &CombatBonuses,
+    ) -> f64 {
+        troops
+            .iter()
+            .filter_map(|(troop_type, count)| {
+                definitions
+                    .iter()
+                    .find(|d| d.troop_type == *troop_type)
+                    .map(|d| {
+                        let base_attack = d.attack as f64 * *count as f64;
+                        let multiplier = bonuses.attack_multiplier(troop_type);
+                        base_attack * multiplier
+                    })
+            })
+            .sum()
+    }
+
+    /// Calculate total defense power with hero bonuses applied
+    fn calculate_defense_power_with_bonuses(
+        troops: &ArmyTroops,
+        definitions: &[TroopDefinition],
+        infantry_ratio: f64,
+        bonuses: &CombatBonuses,
+    ) -> f64 {
+        let cavalry_ratio = 1.0 - infantry_ratio;
+        let defense_multiplier = bonuses.defense_multiplier(infantry_ratio);
+
+        troops
+            .iter()
+            .filter_map(|(troop_type, count)| {
+                definitions.iter().find(|d| d.troop_type == *troop_type).map(|d| {
+                    let effective_defense = (d.defense_infantry as f64 * infantry_ratio)
+                        + (d.defense_cavalry as f64 * cavalry_ratio);
+                    effective_defense * *count as f64 * defense_multiplier
                 })
             })
             .sum()

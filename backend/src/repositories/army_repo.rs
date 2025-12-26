@@ -15,7 +15,7 @@ impl ArmyRepository {
             r#"
             SELECT id, player_id, from_village_id, to_x, to_y, to_village_id,
                    mission, troops, resources, departed_at, arrives_at,
-                   returns_at, is_returning, is_stationed, battle_report_id, created_at
+                   returns_at, is_returning, is_stationed, battle_report_id, hero_id, created_at
             FROM armies
             WHERE id = $1
             "#,
@@ -32,7 +32,7 @@ impl ArmyRepository {
             r#"
             SELECT id, player_id, from_village_id, to_x, to_y, to_village_id,
                    mission, troops, resources, departed_at, arrives_at,
-                   returns_at, is_returning, is_stationed, battle_report_id, created_at
+                   returns_at, is_returning, is_stationed, battle_report_id, hero_id, created_at
             FROM armies
             WHERE player_id = $1
             ORDER BY arrives_at ASC
@@ -50,7 +50,7 @@ impl ArmyRepository {
             r#"
             SELECT id, player_id, from_village_id, to_x, to_y, to_village_id,
                    mission, troops, resources, departed_at, arrives_at,
-                   returns_at, is_returning, is_stationed, battle_report_id, created_at
+                   returns_at, is_returning, is_stationed, battle_report_id, hero_id, created_at
             FROM armies
             WHERE from_village_id = $1 AND is_stationed = FALSE
             ORDER BY arrives_at ASC
@@ -68,7 +68,7 @@ impl ArmyRepository {
             r#"
             SELECT id, player_id, from_village_id, to_x, to_y, to_village_id,
                    mission, troops, resources, departed_at, arrives_at,
-                   returns_at, is_returning, is_stationed, battle_report_id, created_at
+                   returns_at, is_returning, is_stationed, battle_report_id, hero_id, created_at
             FROM armies
             WHERE to_village_id = $1 AND is_returning = FALSE AND is_stationed = FALSE
             ORDER BY arrives_at ASC
@@ -94,15 +94,16 @@ impl ArmyRepository {
         departed_at: DateTime<Utc>,
         arrives_at: DateTime<Utc>,
         returns_at: Option<DateTime<Utc>>,
+        hero_id: Option<Uuid>,
     ) -> AppResult<Army> {
         let army = sqlx::query_as::<_, Army>(
             r#"
             INSERT INTO armies (player_id, from_village_id, to_x, to_y, to_village_id,
-                               mission, troops, resources, departed_at, arrives_at, returns_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                               mission, troops, resources, departed_at, arrives_at, returns_at, hero_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING id, player_id, from_village_id, to_x, to_y, to_village_id,
                       mission, troops, resources, departed_at, arrives_at,
-                      returns_at, is_returning, is_stationed, battle_report_id, created_at
+                      returns_at, is_returning, is_stationed, battle_report_id, hero_id, created_at
             "#,
         )
         .bind(player_id)
@@ -116,6 +117,7 @@ impl ArmyRepository {
         .bind(departed_at)
         .bind(arrives_at)
         .bind(returns_at)
+        .bind(hero_id)
         .fetch_one(pool)
         .await?;
 
@@ -141,7 +143,7 @@ impl ArmyRepository {
             WHERE id = $1
             RETURNING id, player_id, from_village_id, to_x, to_y, to_village_id,
                       mission, troops, resources, departed_at, arrives_at,
-                      returns_at, is_returning, is_stationed, battle_report_id, created_at
+                      returns_at, is_returning, is_stationed, battle_report_id, hero_id, created_at
             "#,
         )
         .bind(id)
@@ -169,7 +171,7 @@ impl ArmyRepository {
             r#"
             SELECT id, player_id, from_village_id, to_x, to_y, to_village_id,
                    mission, troops, resources, departed_at, arrives_at,
-                   returns_at, is_returning, is_stationed, battle_report_id, created_at
+                   returns_at, is_returning, is_stationed, battle_report_id, hero_id, created_at
             FROM armies
             WHERE arrives_at <= NOW() AND is_stationed = FALSE
             "#,
@@ -191,7 +193,7 @@ impl ArmyRepository {
             WHERE id = $1
             RETURNING id, player_id, from_village_id, to_x, to_y, to_village_id,
                       mission, troops, resources, departed_at, arrives_at,
-                      returns_at, is_returning, is_stationed, battle_report_id, created_at
+                      returns_at, is_returning, is_stationed, battle_report_id, hero_id, created_at
             "#,
         )
         .bind(id)
@@ -207,7 +209,7 @@ impl ArmyRepository {
             r#"
             SELECT id, player_id, from_village_id, to_x, to_y, to_village_id,
                    mission, troops, resources, departed_at, arrives_at,
-                   returns_at, is_returning, is_stationed, battle_report_id, created_at
+                   returns_at, is_returning, is_stationed, battle_report_id, hero_id, created_at
             FROM armies
             WHERE to_village_id = $1 AND is_stationed = TRUE
             ORDER BY arrives_at ASC
@@ -226,7 +228,7 @@ impl ArmyRepository {
             r#"
             SELECT id, player_id, from_village_id, to_x, to_y, to_village_id,
                    mission, troops, resources, departed_at, arrives_at,
-                   returns_at, is_returning, is_stationed, battle_report_id, created_at
+                   returns_at, is_returning, is_stationed, battle_report_id, hero_id, created_at
             FROM armies
             WHERE player_id = $1 AND is_stationed = TRUE
             ORDER BY arrives_at ASC
@@ -254,7 +256,7 @@ impl ArmyRepository {
             WHERE id = $1
             RETURNING id, player_id, from_village_id, to_x, to_y, to_village_id,
                       mission, troops, resources, departed_at, arrives_at,
-                      returns_at, is_returning, is_stationed, battle_report_id, created_at
+                      returns_at, is_returning, is_stationed, battle_report_id, hero_id, created_at
             "#,
         )
         .bind(id)
