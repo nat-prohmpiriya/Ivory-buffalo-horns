@@ -5,6 +5,7 @@ mod auth;
 mod building;
 mod hero;
 mod message;
+mod ranking;
 mod shop;
 mod troop;
 mod village;
@@ -33,6 +34,7 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .nest("/heroes", hero_routes(state.clone()))
         .nest("/admin", admin_routes(state.clone()))
         // Public routes (no auth required)
+        .nest("/rankings", ranking_routes())
         .merge(public_routes())
 }
 
@@ -234,4 +236,16 @@ fn admin_routes(state: AppState) -> Router<AppState> {
         // Apply both auth and admin middleware
         .route_layer(middleware::from_fn_with_state(state.clone(), admin_middleware))
         .route_layer(middleware::from_fn_with_state(state, auth_middleware))
+}
+
+fn ranking_routes() -> Router<AppState> {
+    Router::new()
+        // Player rankings
+        .route("/players/population", get(ranking::get_population_ranking))
+        .route("/players/attackers", get(ranking::get_attack_ranking))
+        .route("/players/defenders", get(ranking::get_defense_ranking))
+        // Hero rankings
+        .route("/heroes", get(ranking::get_hero_ranking))
+        // Alliance rankings
+        .route("/alliances", get(ranking::get_alliance_ranking))
 }

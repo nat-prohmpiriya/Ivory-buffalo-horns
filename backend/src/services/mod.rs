@@ -5,6 +5,7 @@ pub mod background_jobs;
 pub mod building_service;
 pub mod hero_service;
 pub mod message_service;
+pub mod ranking_service;
 pub mod resource_service;
 pub mod shop_service;
 pub mod troop_service;

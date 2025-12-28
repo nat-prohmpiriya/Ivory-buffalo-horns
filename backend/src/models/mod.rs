@@ -4,6 +4,7 @@ pub mod army;
 pub mod building;
 pub mod hero;
 pub mod message;
+pub mod ranking;
 pub mod shop;
 pub mod troop;
 pub mod user;
