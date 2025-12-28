@@ -15,6 +15,9 @@ pub struct User {
     pub updated_at: DateTime<Utc>,
     pub last_login_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
+    pub is_admin: bool,
+    pub banned_at: Option<DateTime<Utc>>,
+    pub banned_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

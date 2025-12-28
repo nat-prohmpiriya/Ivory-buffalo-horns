@@ -188,3 +188,37 @@ pub async fn auth_middleware(
 
     Ok(next.run(request).await)
 }
+
+/// Admin middleware - must be used after auth_middleware
+/// Checks if the authenticated user has admin privileges
+pub async fn admin_middleware(
+    State(state): State<AppState>,
+    request: Request,
+    next: Next,
+) -> Result<Response, AppError> {
+    use crate::repositories::user_repo::UserRepository;
+
+    // Get the authenticated user from request extensions
+    let auth_user = request
+        .extensions()
+        .get::<AuthenticatedUser>()
+        .ok_or(AppError::Unauthorized)?
+        .clone();
+
+    // Check if user exists and is admin
+    let db_user = UserRepository::find_by_firebase_uid(&state.db, &auth_user.firebase_uid)
+        .await?
+        .ok_or(AppError::Unauthorized)?;
+
+    // Check if user is banned
+    if db_user.banned_at.is_some() {
+        return Err(AppError::Forbidden("Your account has been banned".into()));
+    }
+
+    // Check if user is admin
+    if !db_user.is_admin {
+        return Err(AppError::Forbidden("Admin access required".into()));
+    }
+
+    Ok(next.run(request).await)
+}

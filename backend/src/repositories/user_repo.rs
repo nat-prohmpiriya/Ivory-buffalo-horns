@@ -11,7 +11,8 @@ impl UserRepository {
         let user = sqlx::query_as::<_, User>(
             r#"
             SELECT id, firebase_uid, email, display_name, photo_url, provider,
-                   created_at, updated_at, last_login_at, deleted_at
+                   created_at, updated_at, last_login_at, deleted_at,
+                   is_admin, banned_at, banned_reason
             FROM users
             WHERE id = $1 AND deleted_at IS NULL
             "#,
@@ -27,7 +28,8 @@ impl UserRepository {
         let user = sqlx::query_as::<_, User>(
             r#"
             SELECT id, firebase_uid, email, display_name, photo_url, provider,
-                   created_at, updated_at, last_login_at, deleted_at
+                   created_at, updated_at, last_login_at, deleted_at,
+                   is_admin, banned_at, banned_reason
             FROM users
             WHERE firebase_uid = $1 AND deleted_at IS NULL
             "#,
@@ -45,7 +47,8 @@ impl UserRepository {
             INSERT INTO users (firebase_uid, email, display_name, photo_url, provider)
             VALUES ($1, $2, $3, $4, $5)
             RETURNING id, firebase_uid, email, display_name, photo_url, provider,
-                      created_at, updated_at, last_login_at, deleted_at
+                      created_at, updated_at, last_login_at, deleted_at,
+                      is_admin, banned_at, banned_reason
             "#,
         )
         .bind(&input.firebase_uid)
@@ -69,7 +72,8 @@ impl UserRepository {
                 updated_at = NOW()
             WHERE firebase_uid = $1 AND deleted_at IS NULL
             RETURNING id, firebase_uid, email, display_name, photo_url, provider,
-                      created_at, updated_at, last_login_at, deleted_at
+                      created_at, updated_at, last_login_at, deleted_at,
+                      is_admin, banned_at, banned_reason
             "#,
         )
         .bind(firebase_uid)
@@ -110,7 +114,8 @@ impl UserRepository {
                 updated_at = NOW(),
                 deleted_at = NULL
             RETURNING id, firebase_uid, email, display_name, photo_url, provider,
-                      created_at, updated_at, last_login_at, deleted_at
+                      created_at, updated_at, last_login_at, deleted_at,
+                      is_admin, banned_at, banned_reason
             "#,
         )
         .bind(&input.firebase_uid)

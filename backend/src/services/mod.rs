@@ -1,3 +1,4 @@
+pub mod admin_service;
 pub mod alliance_service;
 pub mod army_service;
 pub mod background_jobs;

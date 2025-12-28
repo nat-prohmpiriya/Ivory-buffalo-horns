@@ -1,3 +1,4 @@
+pub mod admin;
 pub mod alliance;
 pub mod army;
 pub mod building;

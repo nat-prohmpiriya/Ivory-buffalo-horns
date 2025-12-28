@@ -1,3 +1,4 @@
+mod admin;
 mod alliance;
 mod army;
 mod auth;
@@ -11,7 +12,7 @@ pub mod ws;
 
 use axum::{middleware, routing::{delete, get, post, put}, Router};
 
-use crate::middleware::auth_middleware;
+use crate::middleware::{admin_middleware, auth_middleware};
 use crate::AppState;
 
 pub fn routes(state: AppState) -> Router<AppState> {
@@ -30,6 +31,7 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .nest("/alliance-messages", alliance_message_routes(state.clone()))
         .nest("/shop", shop_routes(state.clone()))
         .nest("/heroes", hero_routes(state.clone()))
+        .nest("/admin", admin_routes(state.clone()))
         // Public routes (no auth required)
         .merge(public_routes())
 }
@@ -213,5 +215,23 @@ fn hero_routes(state: AppState) -> Router<AppState> {
         // Revive
         .route("/{id}/revive-info", get(hero::get_revive_info))
         .route("/{id}/revive", post(hero::revive_hero))
+        .route_layer(middleware::from_fn_with_state(state, auth_middleware))
+}
+
+fn admin_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        // User management
+        .route("/users", get(admin::list_users))
+        .route("/users/search", get(admin::search_users))
+        .route("/users/{id}", get(admin::get_player_detail))
+        .route("/users/{id}/ban", post(admin::ban_user))
+        .route("/users/{id}/unban", post(admin::unban_user))
+        .route("/users/{id}/admin", put(admin::set_admin))
+        // Server stats
+        .route("/stats", get(admin::get_server_stats))
+        // Resource management
+        .route("/villages/{id}/resources", post(admin::adjust_resources))
+        // Apply both auth and admin middleware
+        .route_layer(middleware::from_fn_with_state(state.clone(), admin_middleware))
         .route_layer(middleware::from_fn_with_state(state, auth_middleware))
 }
