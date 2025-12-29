@@ -8,6 +8,7 @@ pub mod message_service;
 pub mod ranking_service;
 pub mod resource_service;
 pub mod shop_service;
+pub mod trade_service;
 pub mod troop_service;
 pub mod village_service;
 pub mod ws_service;

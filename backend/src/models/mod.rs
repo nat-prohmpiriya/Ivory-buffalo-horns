@@ -6,6 +6,7 @@ pub mod hero;
 pub mod message;
 pub mod ranking;
 pub mod shop;
+pub mod trade;
 pub mod troop;
 pub mod user;
 pub mod village;

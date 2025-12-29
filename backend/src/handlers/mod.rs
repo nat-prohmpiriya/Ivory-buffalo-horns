@@ -7,6 +7,7 @@ mod hero;
 mod message;
 mod ranking;
 mod shop;
+mod trade;
 mod troop;
 mod village;
 pub mod ws;
@@ -33,8 +34,10 @@ pub fn routes(state: AppState) -> Router<AppState> {
         .nest("/shop", shop_routes(state.clone()))
         .nest("/heroes", hero_routes(state.clone()))
         .nest("/admin", admin_routes(state.clone()))
+        .nest("/trade", trade_routes(state.clone()))
         // Public routes (no auth required)
         .nest("/rankings", ranking_routes())
+        .nest("/market", market_routes())
         .merge(public_routes())
 }
 
@@ -248,4 +251,24 @@ fn ranking_routes() -> Router<AppState> {
         .route("/heroes", get(ranking::get_hero_ranking))
         // Alliance rankings
         .route("/alliances", get(ranking::get_alliance_ranking))
+}
+
+fn market_routes() -> Router<AppState> {
+    Router::new()
+        // Public market endpoints (no auth required)
+        .route("/summary", get(trade::get_market_summary))
+        .route("/orders", get(trade::get_open_orders))
+        .route("/orders/{id}", get(trade::get_order))
+        .route("/transactions", get(trade::get_recent_transactions))
+}
+
+fn trade_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        // Order management (authenticated)
+        .route("/orders", post(trade::create_order))
+        .route("/orders", get(trade::get_my_orders))
+        .route("/orders/{id}/accept", post(trade::accept_order))
+        .route("/orders/{id}/cancel", post(trade::cancel_order))
+        .route("/history", get(trade::get_trade_history))
+        .route_layer(middleware::from_fn_with_state(state, auth_middleware))
 }

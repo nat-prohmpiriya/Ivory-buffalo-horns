@@ -6,6 +6,7 @@ pub mod hero_repo;
 pub mod message_repo;
 pub mod ranking_repo;
 pub mod shop_repo;
+pub mod trade_repo;
 pub mod troop_repo;
 pub mod user_repo;
 pub mod village_repo;
