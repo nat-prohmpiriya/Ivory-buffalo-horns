@@ -7,10 +7,18 @@
   import ResourceBar from '$lib/components/game/ResourceBar.svelte';
   import LanguageSwitcher from '$lib/components/LanguageSwitcher.svelte';
   import ReportsModal from '$lib/components/modals/ReportsModal.svelte';
+  import AllianceModal from '$lib/components/modals/AllianceModal.svelte';
+  import MessagesModal from '$lib/components/modals/MessagesModal.svelte';
+  import ShopModal from '$lib/components/modals/ShopModal.svelte';
+  import HeroModal from '$lib/components/modals/HeroModal.svelte';
+  import RankingModal from '$lib/components/modals/RankingModal.svelte';
+  import { messageStore } from '$lib/stores/message';
+  import { shopStore } from '$lib/stores/shop';
   import { page } from '$app/state';
   import { goto } from '$app/navigation';
   import { villageStore } from '$lib/stores/village';
   import { armyStore } from '$lib/stores/army';
+  import { allianceStore } from '$lib/stores/alliance';
   import { wsClient, wsState } from '$lib/api/ws';
 
   let { children }: { children: Snippet } = $props();
@@ -30,6 +38,28 @@
   let reportsModalOpen = $state(false);
   let armyState = $state(armyStore);
   let unreadReportsCount = $derived($armyState.unreadCount);
+
+  // Alliance modal state
+  let allianceModalOpen = $state(false);
+  let allianceStoreState = $state(allianceStore);
+  let myAlliance = $derived($allianceStoreState.myAlliance);
+  let pendingInvitations = $derived($allianceStoreState.invitations);
+
+  // Messages modal state
+  let messagesModalOpen = $state(false);
+  let messageStoreState = $state(messageStore);
+  let unreadMessagesCount = $derived($messageStoreState.unreadCount);
+
+  // Shop modal state
+  let shopModalOpen = $state(false);
+  let shopStoreState = $state(shopStore);
+  let goldBalance = $derived($shopStoreState.balance?.gold_balance ?? 0);
+
+  // Hero modal state
+  let heroModalOpen = $state(false);
+
+  // Ranking modal state
+  let rankingModalOpen = $state(false);
 
   // Convert village data to ResourceBar format
   const resources = $derived(currentVillage ? {
@@ -51,8 +81,8 @@
     cropProduction: 0, cropConsumption: 0
   });
 
-  // TODO: Get gold from player stats API
-  const gold = 0;
+  // Gold from shop store
+  const gold = $derived(goldBalance);
 
   const navItems = [
     { href: '/game/village', labelKey: 'nav.village', icon: '🏘️' },
@@ -101,6 +131,16 @@
 
         // Load unread reports count
         armyStore.loadUnreadCount();
+
+        // Load alliance data
+        allianceStore.loadMyAlliance();
+        allianceStore.loadInvitations();
+
+        // Load unread messages count
+        messageStore.loadUnreadCount();
+
+        // Load gold balance
+        shopStore.loadBalance();
 
         // Connect WebSocket
         await wsClient.connect();
@@ -205,6 +245,16 @@
         <!-- Language Switcher -->
         <LanguageSwitcher />
 
+        <!-- Alliance -->
+        <Button variant="ghost" size="icon" class="relative" onclick={() => allianceModalOpen = true}>
+          <span class="text-lg">🏰</span>
+          {#if pendingInvitations.length > 0}
+            <span class="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
+              {pendingInvitations.length > 9 ? '9+' : pendingInvitations.length}
+            </span>
+          {/if}
+        </Button>
+
         <!-- Reports -->
         <Button variant="ghost" size="icon" class="relative" onclick={() => reportsModalOpen = true}>
           <span class="text-lg">📜</span>
@@ -215,9 +265,29 @@
           {/if}
         </Button>
 
-        <!-- Notifications -->
-        <Button variant="ghost" size="icon" class="relative">
-          <span class="text-lg">🔔</span>
+        <!-- Messages -->
+        <Button variant="ghost" size="icon" class="relative" onclick={() => messagesModalOpen = true}>
+          <span class="text-lg">✉️</span>
+          {#if unreadMessagesCount > 0}
+            <span class="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
+              {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+            </span>
+          {/if}
+        </Button>
+
+        <!-- Shop -->
+        <Button variant="ghost" size="icon" onclick={() => shopModalOpen = true}>
+          <span class="text-lg">💰</span>
+        </Button>
+
+        <!-- Hero -->
+        <Button variant="ghost" size="icon" onclick={() => heroModalOpen = true}>
+          <span class="text-lg">🦸</span>
+        </Button>
+
+        <!-- Ranking -->
+        <Button variant="ghost" size="icon" onclick={() => rankingModalOpen = true}>
+          <span class="text-lg">🏆</span>
         </Button>
 
         <!-- Profile -->
@@ -274,3 +344,18 @@
 
 <!-- Reports Modal -->
 <ReportsModal bind:open={reportsModalOpen} />
+
+<!-- Alliance Modal -->
+<AllianceModal bind:open={allianceModalOpen} />
+
+<!-- Messages Modal -->
+<MessagesModal bind:open={messagesModalOpen} />
+
+<!-- Shop Modal -->
+<ShopModal bind:open={shopModalOpen} />
+
+<!-- Hero Modal -->
+<HeroModal bind:open={heroModalOpen} />
+
+<!-- Ranking Modal -->
+<RankingModal bind:open={rankingModalOpen} />
