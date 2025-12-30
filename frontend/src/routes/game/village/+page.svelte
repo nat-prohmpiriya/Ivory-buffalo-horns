@@ -6,10 +6,12 @@
   import BuildingDetailModal from '$lib/components/modals/BuildingDetailModal.svelte';
   import BuildMenuModal from '$lib/components/modals/BuildMenuModal.svelte';
   import TrainingModal from '$lib/components/modals/TrainingModal.svelte';
+  import MarketModal from '$lib/components/modals/MarketModal.svelte';
   import { villageStore, getBuildingBySlot, type Building, type BuildingType } from '$lib/stores/village';
   import { goto } from '$app/navigation';
   import ArmyMovementPanel from '$lib/components/game/ArmyMovementPanel.svelte';
   import StationedTroopsPanel from '$lib/components/game/StationedTroopsPanel.svelte';
+  import { api } from '$lib/api/client';
 
   type ViewMode = 'village' | 'resources';
 
@@ -18,6 +20,7 @@
   let showBuildingDetail = $state(false);
   let showBuildMenu = $state(false);
   let showTrainingModal = $state(false);
+  let showMarketModal = $state(false);
   let selectedBuilding = $state<Building | null>(null);
   let selectedSlot = $state(0);
   let selectedIsResource = $state(false);
@@ -25,6 +28,7 @@
   let trainingBuildingLevel = $state(1);
   let actionLoading = $state(false);
   let actionError = $state('');
+  let userGold = $state(0);
 
   // Subscribe to stores
   let villageState = $state(villageStore);
@@ -162,6 +166,19 @@
     }
   }
 
+  function openMarketModal() {
+    showMarketModal = true;
+  }
+
+  async function loadUserGold() {
+    try {
+      const response = await api.get<{ gold: number }>('/api/shop/balance');
+      userGold = response.gold;
+    } catch {
+      userGold = 0;
+    }
+  }
+
   // Load village data on mount
   onMount(() => {
     let refreshInterval: ReturnType<typeof setInterval>;
@@ -177,8 +194,11 @@
           return;
         }
 
-        // Load first village details
-        await villageStore.loadVillage(villages[0].id);
+        // Load first village details and user gold
+        await Promise.all([
+          villageStore.loadVillage(villages[0].id),
+          loadUserGold(),
+        ]);
 
         // Set up interval to refresh build queue
         refreshInterval = setInterval(() => {
@@ -416,7 +436,13 @@
               <span>⚔️</span>
               Train Troops
             </Button>
-            <Button variant="outline" class="w-full justify-start gap-2" size="sm">
+            <Button
+              variant="outline"
+              class="w-full justify-start gap-2"
+              size="sm"
+              onclick={openMarketModal}
+              disabled={!buildings.some(b => b.building_type === 'market')}
+            >
               <span>🏪</span>
               Open Market
             </Button>
@@ -483,6 +509,7 @@
     iron: currentVillage.iron,
     crop: currentVillage.crop,
   } : undefined}
+  {userGold}
   onUpgrade={handleUpgrade}
   onDemolish={handleDemolish}
   onTrainTroops={handleTrainTroops}
@@ -516,4 +543,16 @@
     iron: currentVillage.iron,
     crop: currentVillage.crop,
   } : { wood: 0, clay: 0, iron: 0, crop: 0 }}
+/>
+
+<MarketModal
+  bind:open={showMarketModal}
+  villageId={currentVillage?.id || ''}
+  villageResources={currentVillage ? {
+    wood: currentVillage.wood,
+    clay: currentVillage.clay,
+    iron: currentVillage.iron,
+    crop: currentVillage.crop,
+  } : { wood: 0, clay: 0, iron: 0, crop: 0 }}
+  {userGold}
 />

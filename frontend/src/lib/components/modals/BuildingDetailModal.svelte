@@ -4,6 +4,7 @@
   import { Card } from '$lib/components/ui/card';
   import { Separator } from '$lib/components/ui/separator';
   import RallyPointModal from './RallyPointModal.svelte';
+  import MarketModal from './MarketModal.svelte';
   import type { BuildingType } from '$lib/components/game/BuildingSlot.svelte';
 
   interface Building {
@@ -36,6 +37,7 @@
     villageX?: number;
     villageY?: number;
     villageResources?: VillageResources;
+    userGold?: number;
     onUpgrade?: () => void;
     onDemolish?: () => void;
     onTrainTroops?: () => void;
@@ -50,6 +52,7 @@
     villageX = 0,
     villageY = 0,
     villageResources,
+    userGold = 0,
     onUpgrade,
     onDemolish,
     onTrainTroops,
@@ -59,6 +62,14 @@
 
   // Rally Point modal state
   let rallyPointOpen = $state(false);
+
+  // Market modal state
+  let marketOpen = $state(false);
+
+  function openMarket() {
+    open = false; // Close building detail modal
+    marketOpen = true; // Open market modal
+  }
 
   function openRallyPoint() {
     open = false; // Close building detail modal
@@ -312,13 +323,9 @@
         {#if building.type === 'market'}
           <Separator />
           <div class="space-y-2">
-            <Button variant="outline" class="w-full gap-2">
-              <span>📤</span>
-              Send Resources
-            </Button>
-            <Button variant="outline" class="w-full gap-2">
-              <span>🔄</span>
-              Trade
+            <Button variant="outline" class="w-full gap-2" onclick={openMarket}>
+              <span>🏪</span>
+              Open Marketplace
             </Button>
           </div>
         {/if}
@@ -346,4 +353,12 @@
   {villageId}
   {villageX}
   {villageY}
+/>
+
+<!-- Market Modal -->
+<MarketModal
+  bind:open={marketOpen}
+  {villageId}
+  villageResources={playerResources}
+  {userGold}
 />
