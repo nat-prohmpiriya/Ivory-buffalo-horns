@@ -789,7 +789,7 @@ Each task is small enough to be reviewed and tested independently.
 
 # [x] Phase 2: Alliance System
 
-## [x] 2.3 Alliance Features
+## [x] 2.3 Alliance Features (Complete)
 
 ### [x] T105: Create Alliance Model and Repository
 - **Description:** Implement Alliance, AllianceMember, and AllianceDiplomacy models.
@@ -817,34 +817,41 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [ ] T108: Create Alliance Home Page (Frontend)
+### [x] T108: Create Alliance Home Page (Frontend)
 - **Description:** Create alliance overview page in frontend.
-- **Status:** Not started
+- **Technical Context:**
+  - Files: `frontend/src/lib/components/modals/AllianceModal.svelte`, `frontend/src/lib/stores/alliance.ts`
+- **Status:** Completed
 
 ---
 
-### [ ] T109: Create Alliance Members Page (Frontend)
+### [x] T109: Create Alliance Members Page (Frontend)
 - **Description:** Create alliance members management page.
-- **Status:** Not started
+- **Technical Context:**
+  - Files: `frontend/src/lib/components/modals/AllianceModal.svelte` (Members tab)
+- **Status:** Completed
 
 ---
 
-### [ ] T110: Create Alliance Diplomacy Page (Frontend)
+### [x] T110: Create Alliance Diplomacy Page (Frontend)
 - **Description:** Create alliance diplomacy management page.
-- **Status:** Not started
+- **Technical Context:**
+  - Files: `frontend/src/lib/components/modals/AllianceModal.svelte` (Diplomacy tab)
+- **Status:** Completed
 
 ---
 
-### [ ] T111: Create Alliance Chat Page (Frontend)
+### [x] T111: Create Alliance Chat Page (Frontend)
 - **Description:** Create alliance chat/messages page.
-- **Status:** Not started
-- **Note:** Backend alliance messages API ready
+- **Technical Context:**
+  - Files: `frontend/src/lib/components/modals/AllianceModal.svelte` (Messages tab)
+- **Status:** Completed
 
 ---
 
 # [x] Phase 2: Reports & Messages
 
-## [x] 2.4 Communication
+## [x] 2.4 Communication (Complete)
 
 ### [x] T112: Create Report Models
 - **Description:** Implement Report models for battle and scout reports.
@@ -904,16 +911,17 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [ ] T119: Create Messages Page (Frontend)
+### [x] T119: Create Messages Page (Frontend)
 - **Description:** Create messages inbox/compose page in frontend.
-- **Status:** Not started
-- **Note:** Backend API complete
+- **Technical Context:**
+  - Files: `frontend/src/lib/components/modals/MessagesModal.svelte`, `frontend/src/lib/stores/message.ts`
+- **Status:** Completed
 
 ---
 
 # [x] Phase 2: Shop & Payment
 
-## [x] 2.5 Monetization
+## [x] 2.5 Monetization (Complete)
 
 ### [x] T120: Create Transaction Model and Repository
 - **Description:** Implement GoldTransaction and Subscription models.
@@ -950,10 +958,11 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [ ] T124: Create Shop Page (Frontend)
+### [x] T124: Create Shop Page (Frontend)
 - **Description:** Create shop page in frontend.
-- **Status:** Not started
-- **Note:** Backend API complete
+- **Technical Context:**
+  - Files: `frontend/src/lib/components/modals/ShopModal.svelte`, `frontend/src/lib/stores/shop.ts`
+- **Status:** Completed
 
 ---
 
@@ -968,7 +977,7 @@ Each task is small enough to be reviewed and tested independently.
 
 # [x] Phase 2: Hero System (NEW)
 
-## [x] 2.6 Hero Features
+## [x] 2.6 Hero Features (Complete)
 
 ### [x] T141: Create Hero Model and Repository
 - **Description:** Implement Hero model with attributes, inventory, and adventures.
@@ -1013,16 +1022,17 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [ ] T146: Create Hero Page (Frontend)
+### [x] T146: Create Hero Page (Frontend)
 - **Description:** Create hero management page in frontend.
-- **Status:** Not started
-- **Note:** Backend API complete
+- **Technical Context:**
+  - Files: `frontend/src/lib/components/modals/HeroModal.svelte`, `frontend/src/lib/stores/hero.ts`
+- **Status:** Completed
 
 ---
 
 # [x] Phase 2: Admin System (NEW)
 
-## [x] 2.7 Admin Features
+## [x] 2.7 Admin Features (Complete)
 
 ### [x] T147: Create Admin Model and Repository
 - **Description:** Implement admin-related models and queries.
@@ -1058,16 +1068,17 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [ ] T151: Create Admin Panel (Frontend)
+### [x] T151: Create Admin Panel (Frontend)
 - **Description:** Create admin dashboard in frontend.
-- **Status:** Not started
-- **Note:** Backend API complete
+- **Technical Context:**
+  - Files: `frontend/src/routes/admin/+layout.svelte`, `frontend/src/routes/admin/+page.svelte`, `frontend/src/routes/admin/users/+page.svelte`, `frontend/src/lib/stores/admin.ts`
+- **Status:** Completed
 
 ---
 
 # [x] Phase 2: Ranking System (NEW)
 
-## [x] 2.8 Leaderboard Features
+## [x] 2.8 Leaderboard Features (Complete)
 
 ### [x] T152: Create Ranking Model and Repository
 - **Description:** Implement ranking queries and models.
@@ -1096,16 +1107,17 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [ ] T155: Create Leaderboard Page (Frontend)
+### [x] T155: Create Leaderboard Page (Frontend)
 - **Description:** Create leaderboard page in frontend.
-- **Status:** Not started
-- **Note:** Backend API complete
+- **Technical Context:**
+  - Files: `frontend/src/lib/components/modals/RankingModal.svelte`, `frontend/src/lib/stores/ranking.ts`
+- **Status:** Completed
 
 ---
 
-# [~] Phase 2: Trade System (NEW)
+# [x] Phase 2: Trade System (NEW)
 
-## [~] 2.9 Market Features
+## [x] 2.9 Market Features (Complete)
 
 ### [x] T156: Create Trade Model and Repository
 - **Description:** Implement TradeOrder, TradeTransaction, and ResourceLock models.
@@ -1135,16 +1147,23 @@ Each task is small enough to be reviewed and tested independently.
 
 ---
 
-### [ ] T159: Implement Trade Background Job
+### [x] T159: Implement Trade Background Job
 - **Description:** Create background job for expired orders processing.
-- **Status:** Not started
+- **Technical Context:**
+  - Files: `backend/src/services/background_jobs.rs`, `backend/src/services/trade_service.rs`, `backend/src/services/ws_service.rs`
+  - Runs every 30 seconds
+  - Processes expired sell orders: releases resource locks
+  - Processes expired buy orders: refunds gold to user
+  - Sends WebSocket notification (TradeOrderExpired)
+- **Status:** Completed
 
 ---
 
-### [ ] T160: Create Market Page (Frontend)
+### [x] T160: Create Market Page (Frontend)
 - **Description:** Create market/trade page in frontend.
-- **Status:** Not started
-- **Note:** Backend API complete
+- **Technical Context:**
+  - Files: `frontend/src/lib/components/modals/MarketModal.svelte`, `frontend/src/lib/stores/market.ts`
+- **Status:** Completed
 
 ---
 
@@ -1260,32 +1279,32 @@ Each task is small enough to be reviewed and tested independently.
 | 1.8 | Combat System | Complete | 8/8 |
 | 2.1 | Game Engine | Complete | 6/6 |
 | 2.2 | WebSocket | Complete | 7/8 |
-| 2.3 | Alliance System | Partial | 3/7 (Backend done) |
-| 2.4 | Reports & Messages | Partial | 7/8 (Backend done) |
-| 2.5 | Shop & Payment | Partial | 5/6 (Backend done) |
-| 2.6 | Hero System | Partial | 5/6 (Backend done) |
-| 2.7 | Admin System | Partial | 4/5 (Backend done) |
-| 2.8 | Ranking System | Partial | 3/4 (Backend done) |
-| 2.9 | Trade System | Partial | 3/5 (Backend done) |
+| 2.3 | Alliance System | Complete | 7/7 |
+| 2.4 | Reports & Messages | Complete | 8/8 |
+| 2.5 | Shop & Payment | Complete | 6/6 |
+| 2.6 | Hero System | Complete | 6/6 |
+| 2.7 | Admin System | Complete | 5/5 |
+| 2.8 | Ranking System | Complete | 4/4 |
+| 2.9 | Trade System | Complete | 5/5 |
 | 3 | Polish & Optimization | Partial | 2/15 |
 
 **Progress Summary:**
-- **Backend Completed:** ~95%
-- **Frontend Completed:** ~60%
-- **Overall Completed:** ~80%
+- **Backend Completed:** ~98%
+- **Frontend Completed:** ~85%
+- **Overall Completed:** ~90%
 
 **Core Gameplay Status:** Fully Functional
 - Village, buildings, troops, army, combat: Complete
 - Real-time WebSocket updates: Complete
-- Alliance, messages, shop, hero, admin, ranking, trade: Backend complete
+- Alliance, messages, shop, hero, admin, ranking, trade: Complete
 
 **Remaining Work:**
-- Frontend pages for new features (Alliance, Messages, Shop, Hero, Admin, Ranking, Trade)
-- Polish and optimization tasks
+- T076, T081: Map generation script, map search
+- Phase 3: Polish and optimization tasks
 - Testing and deployment setup
 
 ---
 
-*Document Version: 3.0*
-*Last Updated: 2025-12-29*
+*Document Version: 3.1*
+*Last Updated: 2025-12-30*
 *Synced with: Actual codebase*
