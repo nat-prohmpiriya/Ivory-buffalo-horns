@@ -10,6 +10,7 @@ interface BackendUser {
     display_name: string | null;
     photo_url: string | null;
     provider: string;
+    is_admin: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -33,6 +34,7 @@ interface AuthState {
     loading: boolean;
     syncing: boolean;
     isAuthenticated: boolean;
+    isAdmin: boolean;
     token: string | null;
     firebaseConfigured: boolean;
     hasVillage: boolean;
@@ -47,6 +49,7 @@ function createAuthStore() {
         loading: true,
         syncing: false,
         isAuthenticated: false,
+        isAdmin: false,
         token: null,
         firebaseConfigured: false,
         hasVillage: false,
@@ -68,6 +71,7 @@ function createAuthStore() {
             update(state => ({
                 ...state,
                 backendUser: syncResponse.user,
+                isAdmin: syncResponse.user.is_admin,
                 hasVillage,
                 villages,
                 syncing: false,
