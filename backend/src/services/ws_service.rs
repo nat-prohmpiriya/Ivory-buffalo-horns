@@ -17,6 +17,7 @@ pub enum WsEvent {
     AttackIncoming(AttackIncomingData),
     TroopTrainingComplete(TroopTrainingCompleteData),
     TroopsStarved(TroopsStarvedData),
+    TradeOrderExpired(TradeOrderExpiredData),
     Connected { user_id: Uuid },
 }
 
@@ -67,6 +68,15 @@ pub struct TroopsStarvedData {
     pub village_id: Uuid,
     pub troop_type: String,
     pub quantity: i32,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct TradeOrderExpiredData {
+    pub order_id: Uuid,
+    pub order_type: String,
+    pub resource_type: String,
+    pub quantity_remaining: i32,
+    pub refunded_gold: Option<i32>,
 }
 
 /// Connection info for a single WebSocket connection

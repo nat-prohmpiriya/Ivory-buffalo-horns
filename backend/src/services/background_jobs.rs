@@ -9,7 +9,8 @@ use crate::repositories::village_repo::VillageRepository;
 use crate::services::army_service::ArmyService;
 use crate::services::building_service::BuildingService;
 use crate::services::resource_service::ResourceService;
-use crate::services::ws_service::{BuildingCompleteData, TroopTrainingCompleteData, TroopsStarvedData, WsEvent, WsManager};
+use crate::services::trade_service::TradeService;
+use crate::services::ws_service::{BuildingCompleteData, TradeOrderExpiredData, TroopTrainingCompleteData, TroopsStarvedData, WsEvent, WsManager};
 
 /// Start all background jobs
 pub async fn start_background_jobs(pool: PgPool, ws_manager: WsManager) {
@@ -46,6 +47,13 @@ pub async fn start_background_jobs(pool: PgPool, ws_manager: WsManager) {
     let ws_clone = ws_manager.clone();
     tokio::spawn(async move {
         run_starvation_job(pool_clone, ws_clone).await;
+    });
+
+    // Spawn trade order expiry job
+    let pool_clone = pool.clone();
+    let ws_clone = ws_manager.clone();
+    tokio::spawn(async move {
+        run_trade_expiry_job(pool_clone, ws_clone).await;
     });
 
     info!("Background jobs started");
@@ -305,4 +313,59 @@ async fn process_starvation(pool: &PgPool, ws_manager: &WsManager) -> anyhow::Re
     }
 
     Ok(total_killed)
+}
+
+/// Process expired trade orders every 30 seconds
+async fn run_trade_expiry_job(pool: PgPool, ws_manager: WsManager) {
+    let mut ticker = interval(Duration::from_secs(30));
+
+    loop {
+        ticker.tick().await;
+
+        match process_expired_trade_orders(&pool, &ws_manager).await {
+            Ok(count) => {
+                if count > 0 {
+                    info!("Expired {} trade orders", count);
+                }
+            }
+            Err(e) => {
+                error!("Error processing expired trade orders: {:?}", e);
+            }
+        }
+    }
+}
+
+/// Process expired trade orders and refund resources/gold
+async fn process_expired_trade_orders(pool: &PgPool, ws_manager: &WsManager) -> anyhow::Result<i32> {
+    let results = TradeService::process_expired_orders(pool, 100).await?;
+
+    if results.is_empty() {
+        return Ok(0);
+    }
+
+    let count = results.len() as i32;
+
+    // Send notifications to users
+    for result in results {
+        let event = WsEvent::TradeOrderExpired(TradeOrderExpiredData {
+            order_id: result.order.id,
+            order_type: format!("{:?}", result.order.order_type),
+            resource_type: format!("{:?}", result.order.resource_type),
+            quantity_remaining: result.order.quantity_remaining(),
+            refunded_gold: result.refunded_gold,
+        });
+
+        ws_manager.send_to_user(result.user_id, &event).await;
+
+        info!(
+            "Trade order {} expired: {:?} {:?}, remaining={}, refunded_gold={:?}",
+            result.order.id,
+            result.order.order_type,
+            result.order.resource_type,
+            result.order.quantity_remaining(),
+            result.refunded_gold
+        );
+    }
+
+    Ok(count)
 }

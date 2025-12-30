@@ -847,3 +847,100 @@ fn resource_type_name(resource_type: TradeResourceType) -> &'static str {
         TradeResourceType::Crop => "crop",
     }
 }
+
+/// Expired order result for background job
+#[derive(Debug)]
+pub struct ExpiredOrderResult {
+    pub order: TradeOrder,
+    pub user_id: Uuid,
+    pub refunded_gold: Option<i32>,
+}
+
+impl TradeService {
+    /// Process expired orders - called by background job
+    /// Returns list of expired orders with their refund info for notification
+    pub async fn process_expired_orders(pool: &PgPool, limit: i32) -> anyhow::Result<Vec<ExpiredOrderResult>> {
+        let expired_orders = TradeRepository::get_expired_orders(pool, limit).await?;
+
+        if expired_orders.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let mut results = Vec::new();
+
+        for order in expired_orders {
+            match Self::expire_single_order(pool, &order).await {
+                Ok(refunded_gold) => {
+                    results.push(ExpiredOrderResult {
+                        user_id: order.user_id,
+                        refunded_gold,
+                        order,
+                    });
+                }
+                Err(e) => {
+                    tracing::error!("Failed to expire order {}: {:?}", order.id, e);
+                }
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Expire a single order and process refunds
+    async fn expire_single_order(pool: &PgPool, order: &TradeOrder) -> anyhow::Result<Option<i32>> {
+        let remaining_quantity = order.quantity_remaining();
+
+        // Start transaction
+        let mut tx = pool.begin().await?;
+
+        // Update order status to expired
+        sqlx::query(
+            r#"
+            UPDATE trade_orders
+            SET status = 'expired', updated_at = NOW()
+            WHERE id = $1 AND status IN ('open', 'partially_filled')
+            "#,
+        )
+        .bind(order.id)
+        .execute(&mut *tx)
+        .await?;
+
+        let refunded_gold = match order.order_type {
+            TradeOrderType::Sell => {
+                // Release resource lock - resources are freed back to village
+                TradeRepository::release_resource_lock_tx(
+                    &mut tx,
+                    LOCK_TYPE_TRADE_ORDER,
+                    order.id,
+                )
+                .await?;
+                None
+            }
+            TradeOrderType::Buy => {
+                // Refund gold for unfilled portion
+                let refund_amount = (remaining_quantity as i64) * (order.price_per_unit as i64);
+
+                if refund_amount > 0 {
+                    sqlx::query(
+                        r#"
+                        UPDATE users
+                        SET gold_balance = gold_balance + $2
+                        WHERE id = $1
+                        "#,
+                    )
+                    .bind(order.user_id)
+                    .bind(refund_amount as i32)
+                    .execute(&mut *tx)
+                    .await?;
+                }
+
+                Some(refund_amount as i32)
+            }
+        };
+
+        // Commit transaction
+        tx.commit().await?;
+
+        Ok(refunded_gold)
+    }
+}
