@@ -9,8 +9,11 @@ use uuid::Uuid;
 use crate::error::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
 use crate::models::village::{CreateVillage, ProductionRates, UpdateVillage, VillageResponse};
+use crate::repositories::building_repo::BuildingRepository;
+use crate::repositories::troop_repo::TroopRepository;
 use crate::repositories::user_repo::UserRepository;
 use crate::repositories::village_repo::VillageRepository;
+use crate::services::army_service::ArmyService;
 use crate::services::resource_service::ResourceService;
 use crate::services::village_service::VillageService;
 use crate::AppState;
@@ -318,4 +321,177 @@ pub async fn search_map(
     results.truncate(limit as usize);
 
     Ok(Json(results))
+}
+
+// ==================== Dashboard ====================
+
+#[derive(Debug, Serialize)]
+pub struct DashboardVillage {
+    pub id: Uuid,
+    pub name: String,
+    pub x: i32,
+    pub y: i32,
+    pub is_capital: bool,
+    pub wood: i32,
+    pub clay: i32,
+    pub iron: i32,
+    pub crop: i32,
+    pub warehouse_capacity: i32,
+    pub granary_capacity: i32,
+    pub population: i32,
+    pub production: Option<ProductionRates>,
+    pub building_queue: Vec<BuildingQueueItem>,
+    pub troop_queue: Vec<TroopQueueItem>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct BuildingQueueItem {
+    pub id: Uuid,
+    pub building_type: String,
+    pub slot: i32,
+    pub level: i32,
+    pub ends_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TroopQueueItem {
+    pub id: Uuid,
+    pub troop_type: String,
+    pub count: i32,
+    pub ends_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct IncomingArmy {
+    pub id: Uuid,
+    pub from_village_name: Option<String>,
+    pub from_player_name: Option<String>,
+    pub to_village_id: Uuid,
+    pub to_village_name: String,
+    pub mission: String,
+    pub arrives_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DashboardResponse {
+    pub villages: Vec<DashboardVillage>,
+    pub incoming_attacks: Vec<IncomingArmy>,
+    pub unread_reports: i64,
+}
+
+// GET /api/dashboard - Get dashboard overview for all user's villages
+pub async fn get_dashboard(
+    State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthenticatedUser>,
+) -> AppResult<Json<DashboardResponse>> {
+    let user = UserRepository::find_by_firebase_uid(&state.db, &auth_user.firebase_uid)
+        .await?
+        .ok_or(AppError::Unauthorized)?;
+
+    // Get all villages
+    let villages = VillageRepository::find_by_user_id(&state.db, user.id).await?;
+
+    let mut dashboard_villages = Vec::new();
+
+    for village in villages {
+        // Update resources
+        let updated_village = ResourceService::update_village_resources(&state.db, village.id).await?;
+
+        // Get production rates
+        let production = ResourceService::calculate_production(&state.db, village.id).await.ok();
+        let production_rates = production.map(|p| ProductionRates {
+            wood_per_hour: p.wood_per_hour,
+            clay_per_hour: p.clay_per_hour,
+            iron_per_hour: p.iron_per_hour,
+            crop_per_hour: p.crop_per_hour,
+            crop_consumption: p.crop_consumption,
+            net_crop_per_hour: p.net_crop_per_hour,
+        });
+
+        // Get building queue (buildings currently upgrading)
+        let building_queue: Vec<BuildingQueueItem> = BuildingRepository::find_upgrading_by_village(&state.db, village.id)
+            .await?
+            .into_iter()
+            .filter_map(|b| {
+                b.upgrade_ends_at.map(|ends_at| BuildingQueueItem {
+                    id: b.id,
+                    building_type: format!("{:?}", b.building_type).to_lowercase(),
+                    slot: b.slot,
+                    level: b.level + 1, // Show target level
+                    ends_at,
+                })
+            })
+            .collect();
+
+        // Get troop queue
+        let troop_queue: Vec<TroopQueueItem> = TroopRepository::get_queue_by_village(&state.db, village.id)
+            .await?
+            .into_iter()
+            .map(|t| TroopQueueItem {
+                id: t.id,
+                troop_type: format!("{:?}", t.troop_type).to_lowercase(),
+                count: t.count,
+                ends_at: t.ends_at,
+            })
+            .collect();
+
+        dashboard_villages.push(DashboardVillage {
+            id: updated_village.id,
+            name: updated_village.name,
+            x: updated_village.x,
+            y: updated_village.y,
+            is_capital: updated_village.is_capital,
+            wood: updated_village.wood as i32,
+            clay: updated_village.clay as i32,
+            iron: updated_village.iron as i32,
+            crop: updated_village.crop as i32,
+            warehouse_capacity: updated_village.warehouse_capacity,
+            granary_capacity: updated_village.granary_capacity,
+            population: updated_village.population,
+            production: production_rates,
+            building_queue,
+            troop_queue,
+        });
+    }
+
+    // Get incoming attacks for all user's villages
+    let mut incoming_attacks = Vec::new();
+    for village in &dashboard_villages {
+        let armies = ArmyService::get_incoming_armies(&state.db, village.id).await.unwrap_or_default();
+        for army in armies {
+            // Only show hostile missions
+            let mission_str = format!("{:?}", army.mission).to_lowercase();
+            if mission_str == "attack" || mission_str == "raid" || mission_str == "conquer" {
+                // Get attacker village info
+                let from_village = VillageRepository::find_by_id(&state.db, army.from_village_id)
+                    .await
+                    .ok()
+                    .flatten();
+
+                incoming_attacks.push(IncomingArmy {
+                    id: army.id,
+                    from_village_name: from_village.as_ref().map(|v| v.name.clone()),
+                    from_player_name: None, // Could add player lookup if needed
+                    to_village_id: village.id,
+                    to_village_name: village.name.clone(),
+                    mission: mission_str,
+                    arrives_at: army.arrives_at,
+                });
+            }
+        }
+    }
+
+    // Sort by arrival time
+    incoming_attacks.sort_by(|a, b| a.arrives_at.cmp(&b.arrives_at));
+
+    // Get unread reports count
+    let unread_reports = ArmyService::get_total_unread_count(&state.db, user.id)
+        .await
+        .unwrap_or(0);
+
+    Ok(Json(DashboardResponse {
+        villages: dashboard_villages,
+        incoming_attacks,
+        unread_reports,
+    }))
 }

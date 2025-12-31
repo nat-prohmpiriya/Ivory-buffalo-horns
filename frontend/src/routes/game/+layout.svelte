@@ -85,6 +85,7 @@
   const gold = $derived(goldBalance);
 
   const navItems = [
+    { href: '/game', labelKey: 'nav.dashboard', icon: '📊', exact: true },
     { href: '/game/village', labelKey: 'nav.village', icon: '🏘️' },
     { href: '/game/map', labelKey: 'nav.map', icon: '🗺️' }
   ];

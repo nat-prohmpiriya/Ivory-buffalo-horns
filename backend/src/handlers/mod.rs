@@ -20,6 +20,7 @@ use crate::AppState;
 pub fn routes(state: AppState) -> Router<AppState> {
     Router::new()
         .nest("/auth", auth_routes(state.clone()))
+        .nest("/dashboard", dashboard_routes(state.clone()))
         .nest("/villages", village_routes(state.clone()))
         .nest("/map", map_routes(state.clone()))
         .nest("/troops", troop_routes(state.clone()))
@@ -78,6 +79,12 @@ fn village_routes(state: AppState) -> Router<AppState> {
         .route("/{village_id}/armies/outgoing", get(army::list_outgoing))
         .route("/{village_id}/armies/incoming", get(army::list_incoming))
         .route("/{village_id}/stationed", get(army::list_stationed))
+        .route_layer(middleware::from_fn_with_state(state, auth_middleware))
+}
+
+fn dashboard_routes(state: AppState) -> Router<AppState> {
+    Router::new()
+        .route("/", get(village::get_dashboard))
         .route_layer(middleware::from_fn_with_state(state, auth_middleware))
 }
 
