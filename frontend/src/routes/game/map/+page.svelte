@@ -5,7 +5,7 @@
   import { Card } from '$lib/components/ui/card';
   import MapTile, { type TileData, type TerrainType, type OwnerType } from '$lib/components/game/MapTile.svelte';
   import TileDetailModal from '$lib/components/modals/TileDetailModal.svelte';
-  import { mapStore, getOwnerType, type MapTile as ApiMapTile } from '$lib/stores/map';
+  import { mapStore, getOwnerType, type MapTile as ApiMapTile, type MapSearchResult } from '$lib/stores/map';
   import { villageStore } from '$lib/stores/village';
 
   // Map viewport settings
@@ -19,6 +19,8 @@
   let showTileModal = $state(false);
   let searchInput = $state('');
   let isLoading = $state(true);
+  let showSearchResults = $state(false);
+  let searchTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // Subscribe to stores
   let mapState = $state(mapStore);
@@ -26,6 +28,8 @@
   let apiTiles = $derived($mapState.tiles);
   let villages = $derived($villageState.villages);
   let currentVillage = $derived($villageState.currentVillage);
+  let searchResults = $derived($mapState.searchResults);
+  let searchLoading = $derived($mapState.searchLoading);
 
   // Generate deterministic terrain based on coordinates (since backend doesn't provide terrain)
   function generateTerrain(x: number, y: number): TerrainType {
@@ -154,7 +158,66 @@
       centerX = Math.max(-MAP_SIZE/2, Math.min(MAP_SIZE/2, x));
       centerY = Math.max(-MAP_SIZE/2, Math.min(MAP_SIZE/2, y));
       searchInput = '';
+      showSearchResults = false;
+      mapStore.clearSearch();
       await loadMapTiles();
+    }
+  }
+
+  // Handle search input with debouncing
+  function handleSearchInput() {
+    // Clear previous timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    // Check if it's coordinates first
+    const coordMatch = searchInput.match(/^(-?\d+)[,|](-?\d+)$/);
+    if (coordMatch) {
+      showSearchResults = false;
+      mapStore.clearSearch();
+      return;
+    }
+
+    // Debounce search
+    if (searchInput.trim().length >= 2) {
+      searchTimeout = setTimeout(async () => {
+        await mapStore.search(searchInput.trim());
+        showSearchResults = true;
+      }, 300);
+    } else {
+      showSearchResults = false;
+      mapStore.clearSearch();
+    }
+  }
+
+  // Handle clicking on a search result
+  async function handleSearchResultClick(result: MapSearchResult) {
+    if (result.x !== null && result.y !== null) {
+      centerX = result.x;
+      centerY = result.y;
+      searchInput = '';
+      showSearchResults = false;
+      mapStore.clearSearch();
+      await loadMapTiles();
+    }
+  }
+
+  // Get icon for search result type
+  function getResultIcon(type: string): string {
+    switch (type) {
+      case 'village': return '🏘️';
+      case 'player': return '👤';
+      case 'alliance': return '🏛️';
+      default: return '📍';
+    }
+  }
+
+  // Close search results when clicking outside
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.search-container')) {
+      showSearchResults = false;
     }
   }
 
@@ -236,7 +299,7 @@
   <title>Map - Tusk & Horn</title>
 </svelte:head>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onclick={handleClickOutside} />
 
 {#if isLoading}
   <div class="flex items-center justify-center min-h-[60vh]">
@@ -256,17 +319,71 @@
 
       <!-- Search & Controls -->
       <div class="flex items-center gap-2">
-        <form onsubmit={(e) => { e.preventDefault(); goToCoordinates(); }} class="flex gap-2">
-          <Input
-            type="text"
-            placeholder="x|y (e.g. 100|100)"
-            bind:value={searchInput}
-            class="w-32"
-          />
-          <Button type="submit" variant="outline" size="icon">
-            🔍
-          </Button>
-        </form>
+        <div class="search-container relative">
+          <form onsubmit={(e) => { e.preventDefault(); goToCoordinates(); }} class="flex gap-2">
+            <Input
+              type="text"
+              placeholder="Search or x|y coords"
+              bind:value={searchInput}
+              oninput={handleSearchInput}
+              onfocus={() => { if (searchResults.length > 0) showSearchResults = true; }}
+              class="w-48"
+            />
+            <Button type="submit" variant="outline" size="icon">
+              🔍
+            </Button>
+          </form>
+
+          <!-- Search Results Dropdown -->
+          {#if showSearchResults && (searchResults.length > 0 || searchLoading)}
+            <div class="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg z-50 max-h-80 overflow-y-auto">
+              {#if searchLoading}
+                <div class="p-3 text-center text-muted-foreground text-sm">
+                  Searching...
+                </div>
+              {:else if searchResults.length === 0}
+                <div class="p-3 text-center text-muted-foreground text-sm">
+                  No results found
+                </div>
+              {:else}
+                {#each searchResults as result}
+                  <button
+                    type="button"
+                    class="w-full px-3 py-2 text-left hover:bg-accent flex items-center gap-2 border-b last:border-b-0"
+                    onclick={() => handleSearchResultClick(result)}
+                    disabled={result.x === null}
+                  >
+                    <span class="text-lg">{getResultIcon(result.result_type)}</span>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium truncate">{result.name}</div>
+                      <div class="text-xs text-muted-foreground">
+                        {#if result.result_type === 'village'}
+                          {result.player_name || 'Unknown'} • Pop: {result.population}
+                          {#if result.x !== null && result.y !== null}
+                            • ({result.x}|{result.y})
+                          {/if}
+                        {:else if result.result_type === 'player'}
+                          Player • Pop: {result.population}
+                          {#if result.x !== null && result.y !== null}
+                            • Capital: ({result.x}|{result.y})
+                          {/if}
+                        {:else if result.result_type === 'alliance'}
+                          [{result.alliance_tag}] • {result.member_count} members
+                        {/if}
+                      </div>
+                    </div>
+                    {#if result.x !== null && result.y !== null}
+                      <span class="text-xs text-muted-foreground">→</span>
+                    {:else}
+                      <span class="text-xs text-muted-foreground">(no location)</span>
+                    {/if}
+                  </button>
+                {/each}
+              {/if}
+            </div>
+          {/if}
+        </div>
+
         <Button variant="outline" size="icon" onclick={centerOnVillage} title="Center on village">
           🏠
         </Button>

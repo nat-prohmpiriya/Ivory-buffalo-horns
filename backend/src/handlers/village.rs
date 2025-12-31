@@ -212,3 +212,110 @@ pub async fn get_map(
 
     Ok(Json(tiles))
 }
+
+// ==================== Map Search ====================
+
+#[derive(Debug, Deserialize)]
+pub struct MapSearchQuery {
+    pub q: String,
+    #[serde(default = "default_limit")]
+    pub limit: i32,
+}
+
+fn default_limit() -> i32 {
+    20
+}
+
+#[derive(Debug, Serialize)]
+pub struct MapSearchResult {
+    pub result_type: String, // "player", "village", "alliance"
+    pub id: Uuid,
+    pub name: String,
+    pub x: Option<i32>,
+    pub y: Option<i32>,
+    pub population: Option<i32>,
+    pub player_name: Option<String>,
+    pub alliance_tag: Option<String>,
+    pub member_count: Option<i32>,
+}
+
+// GET /api/map/search?q=... - Search players, villages, alliances
+pub async fn search_map(
+    State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthenticatedUser>,
+    Query(query): Query<MapSearchQuery>,
+) -> AppResult<Json<Vec<MapSearchResult>>> {
+    // Verify user is authenticated
+    let _user = UserRepository::find_by_firebase_uid(&state.db, &auth_user.firebase_uid)
+        .await?
+        .ok_or(AppError::Unauthorized)?;
+
+    let search_term = query.q.trim();
+    if search_term.is_empty() {
+        return Ok(Json(vec![]));
+    }
+
+    let limit = query.limit.min(50).max(1);
+    let mut results = Vec::new();
+
+    // Search villages by name
+    let villages = VillageRepository::search_by_name(&state.db, search_term, limit).await?;
+    for v in villages {
+        results.push(MapSearchResult {
+            result_type: "village".to_string(),
+            id: v.id,
+            name: v.name,
+            x: Some(v.x),
+            y: Some(v.y),
+            population: Some(v.population),
+            player_name: v.player_name,
+            alliance_tag: None,
+            member_count: None,
+        });
+    }
+
+    // Search players by name
+    let players = VillageRepository::search_players(&state.db, search_term, limit).await?;
+    for p in players {
+        results.push(MapSearchResult {
+            result_type: "player".to_string(),
+            id: p.user_id,
+            name: p.player_name.unwrap_or_default(),
+            x: p.x,
+            y: p.y,
+            population: Some(p.total_population),
+            player_name: None,
+            alliance_tag: None,
+            member_count: None,
+        });
+    }
+
+    // Search alliances by name or tag
+    let alliances = VillageRepository::search_alliances(&state.db, search_term, limit).await?;
+    for a in alliances {
+        results.push(MapSearchResult {
+            result_type: "alliance".to_string(),
+            id: a.id,
+            name: a.name,
+            x: None,
+            y: None,
+            population: None,
+            player_name: None,
+            alliance_tag: Some(a.tag),
+            member_count: Some(a.member_count),
+        });
+    }
+
+    // Sort by relevance (exact matches first)
+    let search_lower = search_term.to_lowercase();
+    results.sort_by(|a, b| {
+        let a_exact = a.name.to_lowercase() == search_lower;
+        let b_exact = b.name.to_lowercase() == search_lower;
+        b_exact.cmp(&a_exact)
+    });
+
+    // Limit total results
+    results.truncate(limit as usize);
+
+    Ok(Json(results))
+}

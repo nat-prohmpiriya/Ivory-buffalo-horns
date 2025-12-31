@@ -61,6 +61,10 @@ rand = "0.8"
 [dev-dependencies]
 tokio-test = "0.4"
 
+[[bin]]
+name = "generate_map"
+path = "src/bin/generate_map.rs"
+
 [profile.dev]
 opt-level = 0
 

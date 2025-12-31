@@ -84,6 +84,7 @@ fn village_routes(state: AppState) -> Router<AppState> {
 fn map_routes(state: AppState) -> Router<AppState> {
     Router::new()
         .route("/", get(village::get_map))
+        .route("/search", get(village::search_map))
         .route_layer(middleware::from_fn_with_state(state, auth_middleware))
 }
 

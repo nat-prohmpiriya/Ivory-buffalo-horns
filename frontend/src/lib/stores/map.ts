@@ -16,6 +16,18 @@ export interface MapTile {
     village: MapVillageInfo | null;
 }
 
+export interface MapSearchResult {
+    result_type: 'player' | 'village' | 'alliance';
+    id: string;
+    name: string;
+    x: number | null;
+    y: number | null;
+    population: number | null;
+    player_name: string | null;
+    alliance_tag: string | null;
+    member_count: number | null;
+}
+
 interface MapState {
     tiles: MapTile[];
     centerX: number;
@@ -23,6 +35,8 @@ interface MapState {
     range: number;
     loading: boolean;
     error: string | null;
+    searchResults: MapSearchResult[];
+    searchLoading: boolean;
 }
 
 function createMapStore() {
@@ -33,6 +47,8 @@ function createMapStore() {
         range: 7,
         loading: false,
         error: null,
+        searchResults: [],
+        searchLoading: false,
     });
 
     return {
@@ -66,6 +82,40 @@ function createMapStore() {
             }
         },
 
+        // Search map for players, villages, alliances
+        search: async (query: string) => {
+            if (!query.trim()) {
+                update(state => ({ ...state, searchResults: [], searchLoading: false }));
+                return [];
+            }
+
+            update(state => ({ ...state, searchLoading: true }));
+            try {
+                const results = await api.get<MapSearchResult[]>(`/api/map/search?q=${encodeURIComponent(query)}&limit=20`);
+
+                update(state => ({
+                    ...state,
+                    searchResults: results,
+                    searchLoading: false,
+                }));
+
+                return results;
+            } catch (error: any) {
+                const message = error.message || 'Search failed';
+                update(state => ({
+                    ...state,
+                    searchLoading: false,
+                }));
+                toast.error('Search Failed', { description: message });
+                return [];
+            }
+        },
+
+        // Clear search results
+        clearSearch: () => {
+            update(state => ({ ...state, searchResults: [], searchLoading: false }));
+        },
+
         // Set center coordinates
         setCenter: (x: number, y: number) => {
             update(state => ({ ...state, centerX: x, centerY: y }));
@@ -85,6 +135,8 @@ function createMapStore() {
                 range: 7,
                 loading: false,
                 error: null,
+                searchResults: [],
+                searchLoading: false,
             });
         },
     };

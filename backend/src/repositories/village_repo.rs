@@ -368,4 +368,103 @@ impl VillageRepository {
 
         Ok(village)
     }
+
+    // ==================== Search ====================
+
+    /// Search villages by name (partial match)
+    pub async fn search_by_name(pool: &PgPool, query: &str, limit: i32) -> AppResult<Vec<VillageMapInfo>> {
+        let search_pattern = format!("%{}%", query);
+        let villages = sqlx::query_as::<_, VillageMapInfo>(
+            r#"
+            SELECT v.id, v.user_id, v.name, v.x, v.y, v.population,
+                   u.display_name as player_name
+            FROM villages v
+            LEFT JOIN users u ON v.user_id = u.id
+            WHERE v.name ILIKE $1
+            ORDER BY v.population DESC
+            LIMIT $2
+            "#,
+        )
+        .bind(&search_pattern)
+        .bind(limit)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(villages)
+    }
+
+    /// Search players by name and return their capital/first village location
+    pub async fn search_players(pool: &PgPool, query: &str, limit: i32) -> AppResult<Vec<PlayerSearchResult>> {
+        let search_pattern = format!("%{}%", query);
+        let players = sqlx::query_as::<_, PlayerSearchResult>(
+            r#"
+            SELECT
+                u.id as user_id,
+                u.display_name as player_name,
+                COALESCE(
+                    (SELECT x FROM villages WHERE user_id = u.id AND is_capital = true LIMIT 1),
+                    (SELECT x FROM villages WHERE user_id = u.id ORDER BY created_at LIMIT 1)
+                ) as x,
+                COALESCE(
+                    (SELECT y FROM villages WHERE user_id = u.id AND is_capital = true LIMIT 1),
+                    (SELECT y FROM villages WHERE user_id = u.id ORDER BY created_at LIMIT 1)
+                ) as y,
+                COALESCE((SELECT SUM(population) FROM villages WHERE user_id = u.id), 0)::int as total_population
+            FROM users u
+            WHERE u.display_name ILIKE $1
+              AND u.deleted_at IS NULL
+              AND EXISTS (SELECT 1 FROM villages WHERE user_id = u.id)
+            ORDER BY total_population DESC
+            LIMIT $2
+            "#,
+        )
+        .bind(&search_pattern)
+        .bind(limit)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(players)
+    }
+
+    /// Search alliances by name or tag
+    pub async fn search_alliances(pool: &PgPool, query: &str, limit: i32) -> AppResult<Vec<AllianceSearchResult>> {
+        let search_pattern = format!("%{}%", query);
+        let alliances = sqlx::query_as::<_, AllianceSearchResult>(
+            r#"
+            SELECT
+                a.id,
+                a.name,
+                a.tag,
+                (SELECT COUNT(*) FROM alliance_members WHERE alliance_id = a.id)::int as member_count
+            FROM alliances a
+            WHERE a.name ILIKE $1 OR a.tag ILIKE $1
+            ORDER BY member_count DESC
+            LIMIT $2
+            "#,
+        )
+        .bind(&search_pattern)
+        .bind(limit)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(alliances)
+    }
+}
+
+// Search result types
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct PlayerSearchResult {
+    pub user_id: Uuid,
+    pub player_name: Option<String>,
+    pub x: Option<i32>,
+    pub y: Option<i32>,
+    pub total_population: i32,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct AllianceSearchResult {
+    pub id: Uuid,
+    pub name: String,
+    pub tag: String,
+    pub member_count: i32,
 }
