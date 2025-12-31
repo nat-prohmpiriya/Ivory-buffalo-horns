@@ -6,13 +6,33 @@
   },
   "nav": {
     "home": "หน้าหลัก",
+    "dashboard": "แดชบอร์ด",
     "map": "แผนที่",
     "village": "หมู่บ้าน",
     "alliance": "พันธมิตร",
     "reports": "รายงาน",
     "messages": "ข้อความ",
     "settings": "ตั้งค่า",
+    "profile": "โปรไฟล์",
     "logout": "ออกจากระบบ"
+  },
+  "profile": {
+    "title": "โปรไฟล์",
+    "playerName": "ชื่อผู้เล่น",
+    "tribe": "เผ่า",
+    "joined": "เข้าร่วมเมื่อ",
+    "villages": "หมู่บ้าน",
+    "population": "ประชากรรวม",
+    "alliance": "พันธมิตร",
+    "noAlliance": "ไม่มีพันธมิตร",
+    "stats": "สถิติ",
+    "attackPoints": "คะแนนโจมตี",
+    "defensePoints": "คะแนนป้องกัน",
+    "raidedResources": "ทรัพยากรที่ปล้นได้",
+    "editName": "แก้ไขชื่อ",
+    "deleteAccount": "ลบบัญชี",
+    "deleteAccountWarning": "การกระทำนี้ไม่สามารถย้อนกลับได้ หมู่บ้านและความก้าวหน้าทั้งหมดจะถูกลบอย่างถาวร",
+    "confirmDelete": "พิมพ์ DELETE เพื่อยืนยัน"
   },
   "auth": {
     "login": "เข้าสู่ระบบ",

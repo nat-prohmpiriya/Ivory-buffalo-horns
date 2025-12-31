@@ -12,6 +12,7 @@
   import ShopModal from '$lib/components/modals/ShopModal.svelte';
   import HeroModal from '$lib/components/modals/HeroModal.svelte';
   import RankingModal from '$lib/components/modals/RankingModal.svelte';
+  import ProfileModal from '$lib/components/modals/ProfileModal.svelte';
   import { messageStore } from '$lib/stores/message';
   import { shopStore } from '$lib/stores/shop';
   import { page } from '$app/state';
@@ -60,6 +61,9 @@
 
   // Ranking modal state
   let rankingModalOpen = $state(false);
+
+  // Profile modal state
+  let profileModalOpen = $state(false);
 
   // Convert village data to ResourceBar format
   const resources = $derived(currentVillage ? {
@@ -292,7 +296,7 @@
         </Button>
 
         <!-- Profile -->
-        <Button variant="ghost" size="icon">
+        <Button variant="ghost" size="icon" onclick={() => profileModalOpen = true}>
           <span class="text-lg">👤</span>
         </Button>
       </div>
@@ -360,3 +364,6 @@
 
 <!-- Ranking Modal -->
 <RankingModal bind:open={rankingModalOpen} />
+
+<!-- Profile Modal -->
+<ProfileModal bind:open={profileModalOpen} />
